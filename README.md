@@ -239,6 +239,59 @@ Studio:
 zharp.apiKey=your-ingest-only-key
 ```
 
+## Releasing (maintainers)
+
+Published to Maven Central as `io.zharp:zharp-logs-android` (namespace `io.zharp`, verified on
+[central.sonatype.com](https://central.sonatype.com)).
+
+### Each release
+
+1. Bump `VERSION_NAME` in `gradle.properties` and add the changes to `CHANGELOG.md`.
+2. Upload:
+   ```bash
+   ./gradlew :zharp-logs:publishToMavenCentral
+   ```
+3. On central.sonatype.com → **Publishing Settings** → **Deployments**, wait for the new version to
+   show **Validated**, then click **Publish**. It's installable 10–30 minutes later.
+4. Tag it: `git tag -a v0.1.1 -m "0.1.1" && git push origin v0.1.1`.
+
+### One-time setup on a new machine
+
+Credentials never go in this repo; they live in `~/.gradle/gradle.properties`:
+
+```properties
+# central.sonatype.com → avatar → View Account → Generate User Token
+mavenCentralUsername=
+mavenCentralPassword=
+
+# The LAST 8 characters of the signing key's ID (gpg --list-secret-keys --keyid-format long)
+signing.keyId=
+signing.password=
+signing.secretKeyRingFile=C:/Users/<you>/.gnupg/secring.gpg
+```
+
+The signing key (GPG, the `sec rsa4096/…` line of `gpg --list-secret-keys --keyid-format long`):
+
+- **Moving the existing key** to another machine: `gpg --export-secret-keys --armor <KEY_ID> > key.asc`,
+  then `gpg --import key.asc` there. Keep `key.asc` somewhere safe and never commit it.
+- **Making a new one:**
+  ```bash
+  gpg --quick-gen-key "Zharp <email>" rsa4096 sign 3y
+  gpg --list-secret-keys --keyid-format long        # the 16 characters after rsa4096/
+  gpg --keyserver hkps://keyserver.ubuntu.com --send-keys <KEY_ID>
+  ```
+- **Either way**, write the file Gradle reads:
+  `gpg --export-secret-keys -o ~/.gnupg/secring.gpg <KEY_ID>`.
+
+Maven Central checks signatures against public key servers. If a deployment fails with *"Could not
+find a public key by the key fingerprint"*, the public key isn't on a server yet: send it as
+above, wait until `https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x<FINGERPRINT>` finds it,
+then **Drop** the failed deployment and upload again. (keys.openpgp.org hides a key's name until
+its email is confirmed, so Maven Central may not accept it from there.)
+
+Without a signing key, `./gradlew :zharp-logs:publishToMavenLocal` still works (unsigned), for
+trying a build in another project locally.
+
 ## License
 
 MIT © [Zharp](https://zharp.io)
