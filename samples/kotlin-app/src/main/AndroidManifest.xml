@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:name=".SampleApp"
+        android:label="Zharp Kotlin sample"
+        android:usesCleartextTraffic="true">
+        <!-- Cleartext only so the sample can be pointed at a local test server (zharp.endpoint). -->
+
+        <!-- Configured from the manifest: the key comes from local.properties via Gradle. -->
+        <meta-data android:name="io.zharp.API_KEY" android:value="${zharpApiKey}" />
+        <meta-data android:name="io.zharp.ENDPOINT" android:value="${zharpEndpoint}" />
+        <meta-data android:name="io.zharp.SERVICE" android:value="android-kotlin-sample" />
+        <meta-data android:name="io.zharp.ENVIRONMENT" android:value="development" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
