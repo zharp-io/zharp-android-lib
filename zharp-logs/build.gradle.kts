@@ -1,6 +1,8 @@
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+
 plugins {
     id("com.android.library")
-    id("maven-publish")
+    id("com.vanniktech.maven.publish")
 }
 
 group = providers.gradleProperty("GROUP").get()
@@ -30,13 +32,6 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
-
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-            withJavadocJar()
-        }
-    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -52,35 +47,40 @@ dependencies {
     testImplementation("org.json:json:20240303")
 }
 
-publishing {
-    publications {
-        register<MavenPublication>("release") {
-            groupId = project.group.toString()
-            artifactId = "zharp-logs-android"
-            version = project.version.toString()
-            afterEvaluate { from(components["release"]) }
-            pom {
-                name.set("Zharp Logs for Android")
-                description.set("Send your Android app's logs and crashes to Zharp. Works from Kotlin and Java.")
-                url.set("https://zharp.io/docs/sdks/logs")
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
-                    }
-                }
-                developers {
-                    developer {
-                        id.set("zharp")
-                        name.set("Zharp")
-                        url.set("https://zharp.io")
-                    }
-                }
-                scm {
-                    url.set("https://github.com/zharp-io/zharp-android-lib")
-                    connection.set("scm:git:https://github.com/zharp-io/zharp-android-lib.git")
-                }
+// Published to Maven Central as io.zharp:zharp-logs-android. Credentials and the signing key are
+// never in this repo: they're read from ~/.gradle/gradle.properties (or ORG_GRADLE_PROJECT_* in CI).
+mavenPublishing {
+    publishToMavenCentral()
+    // Maven Central requires signatures; local builds without a key (publishToMavenLocal) skip them.
+    if (providers.gradleProperty("signing.keyId").isPresent || providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
+    coordinates(project.group.toString(), "zharp-logs-android", project.version.toString())
+    configure(AndroidSingleVariantLibrary(variant = "release", sourcesJar = true, publishJavadocJar = true))
+
+    pom {
+        name.set("Zharp Logs for Android")
+        description.set("Send your Android app's logs and crashes to Zharp. Works from Kotlin and Java.")
+        inceptionYear.set("2026")
+        url.set("https://github.com/zharp-io/zharp-android-lib")
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+                distribution.set("repo")
             }
+        }
+        developers {
+            developer {
+                id.set("zharp")
+                name.set("Zharp")
+                url.set("https://zharp.io")
+            }
+        }
+        scm {
+            url.set("https://github.com/zharp-io/zharp-android-lib")
+            connection.set("scm:git:https://github.com/zharp-io/zharp-android-lib.git")
+            developerConnection.set("scm:git:ssh://git@github.com/zharp-io/zharp-android-lib.git")
         }
     }
 }
