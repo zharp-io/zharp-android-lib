@@ -4,7 +4,7 @@ Send your Android app's logs and crashes to [Zharp](https://zharp.io). One libra
 Java apps alike: it's written in Java 8 with no dependencies, so it adds nothing to an older Java
 app and reads naturally from Kotlin. Android 5.0 (API 21) and up.
 
-Full documentation: [zharp.io/docs/sdks/logs](https://zharp.io/docs/sdks/logs)
+Full documentation: [zharp.io/docs/sdks/android](https://zharp.io/docs/sdks/android)
 
 ---
 
