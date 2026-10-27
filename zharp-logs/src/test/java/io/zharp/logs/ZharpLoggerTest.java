@@ -216,6 +216,73 @@ public class ZharpLoggerTest {
         assertEquals(1, bodies.size());
     }
 
+    /** A transport whose clock the test moves, and whose notices it reads. */
+    private static final class ClockedTransport extends Transport {
+        long time = 1_000_000L;
+        final List<String> notices = new CopyOnWriteArrayList<>();
+
+        ClockedTransport(String endpoint) {
+            super("k", Transport.normalizeEndpoint(endpoint), "t", 1);
+        }
+
+        @Override
+        long now() {
+            return time;
+        }
+
+        @Override
+        void notice(String message) {
+            notices.add(message);
+        }
+    }
+
+    @Test
+    public void a_rejected_key_stops_sending_for_an_hour_then_tries_again() throws Exception {
+        ClockedTransport transport = new ClockedTransport(endpoint);
+        List<JSONObject> one = Collections.singletonList(new JSONObject());
+
+        status.set(401);
+        assertTrue(transport.send(one)); // refused for good: dropped, not kept for later
+        assertEquals(1, bodies.size()); // not retried
+        assertEquals(1, transport.notices.size());
+        assertTrue(transport.notices.get(0).contains("rejected this API key (HTTP 401)"));
+
+        // Backed off: nothing goes out, nothing piles up, no more warnings.
+        for (int i = 0; i < 5; i++) assertTrue(transport.send(one));
+        transport.time += Transport.REJECTED_KEY_BACKOFF_MILLIS - 1;
+        assertTrue(transport.send(one));
+        assertEquals(1, bodies.size());
+
+        // An hour on, one batch tries again; still rejected (403 too): back off again, quietly.
+        transport.time += 1;
+        status.set(403);
+        assertTrue(transport.send(one));
+        assertEquals(2, bodies.size());
+        assertTrue(transport.send(one));
+        assertEquals(2, bodies.size());
+        assertEquals(1, transport.notices.size());
+
+        // Accepted again: sending resumes, said once.
+        transport.time += Transport.REJECTED_KEY_BACKOFF_MILLIS;
+        status.set(201);
+        assertTrue(transport.send(one));
+        assertTrue(transport.send(one));
+        assertEquals(4, bodies.size());
+        assertEquals(2, transport.notices.size());
+        assertTrue(transport.notices.get(1).contains("accepted the API key again"));
+    }
+
+    @Test
+    public void other_refusals_do_not_back_off() throws Exception {
+        ClockedTransport transport = new ClockedTransport(endpoint);
+        List<JSONObject> one = Collections.singletonList(new JSONObject());
+        status.set(400);
+        assertTrue(transport.send(one));
+        assertTrue(transport.send(one));
+        assertEquals(2, bodies.size());
+        assertTrue(transport.notices.isEmpty());
+    }
+
     @Test
     public void nothing_is_sent_before_init() throws Exception {
         ZharpLogger.info("dropped");
