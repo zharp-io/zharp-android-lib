@@ -1,5 +1,7 @@
 package io.zharp.logs;
 
+import android.util.Log;
+
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -22,14 +24,28 @@ class Transport {
      */
     static final int MAX_REQUEST_BYTES = 1_000_000;
 
+    /**
+     * After Zharp rejects the API key (401/403), nothing is sent for this long; then one batch
+     * tries again. A key that was deleted or revoked won't start working on its own, and an app
+     * shouldn't send it every few seconds forever.
+     */
+    static final long REJECTED_KEY_BACKOFF_MILLIS = 60 * 60 * 1000L;
+
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final int TIMEOUT_MS = 15_000;
+    /** {@link #sendBody} gave up: the network or the server failed throughout. */
+    private static final int FAILED = -1;
 
     private final String apiKey;
     private final String endpoint;
     private final String sdkName;
     /** The first retry waits twice this, the second four times. */
     private final long retryDelayMillis;
+
+    /** Whether the key was rejected, and when one batch may try it again. Guarded by itself. */
+    private final Object keyState = new Object();
+    private boolean keyRejected;
+    private long retryKeyAt;
 
     Transport(String apiKey, String endpoint, String sdkName, long retryDelayMillis) {
         this.apiKey = apiKey;
@@ -48,24 +64,73 @@ class Transport {
     /**
      * Send entries, split into bodies by size. Returns whether every body was taken or refused
      * for good (a 4xx) — false when the network or the server failed throughout.
+     *
+     * While the API key is rejected, entries are dropped (and count as refused for good) until
+     * {@link #REJECTED_KEY_BACKOFF_MILLIS} has passed; then this batch tries the key again.
      */
     boolean send(List<JSONObject> entries) {
+        synchronized (keyState) {
+            if (keyRejected && now() < retryKeyAt) return true;
+        }
         boolean delivered = true;
         for (String body : splitBySize(entries, MAX_REQUEST_BYTES)) {
-            if (!sendBody(body)) delivered = false;
+            int status = sendBody(body);
+            if (status == 401 || status == 403) {
+                keyRejected(status);
+                return true; // the rest of the batch would be rejected too
+            }
+            if (status == FAILED) {
+                delivered = false;
+            } else {
+                keyAccepted();
+            }
         }
         return delivered;
     }
 
+    private void keyRejected(int status) {
+        boolean first;
+        synchronized (keyState) {
+            first = !keyRejected;
+            keyRejected = true;
+            retryKeyAt = now() + REJECTED_KEY_BACKOFF_MILLIS;
+        }
+        if (first) {
+            notice("Zharp rejected this API key (HTTP " + status
+                    + ") — logs are not being sent. Check the API key.");
+        }
+    }
+
+    private void keyAccepted() {
+        boolean wasRejected;
+        synchronized (keyState) {
+            wasRejected = keyRejected;
+            keyRejected = false;
+        }
+        if (wasRejected) notice("Zharp accepted the API key again — logs are being sent.");
+    }
+
+    /** The time, in milliseconds. Tests move it forward. */
+    long now() {
+        return System.currentTimeMillis();
+    }
+
+    /** A message for the developer, in Logcat with the rest of the SDK's. */
+    void notice(String message) {
+        Log.w(ZharpLogger.TAG, "[Zharp] " + message);
+    }
+
     /**
      * Three attempts in all. Only network errors and 5xx responses are retried — a 4xx won't be
-     * fixed by sending the same thing again.
+     * fixed by sending the same thing again. Returns the status of the last answer, or
+     * {@link #FAILED} when the network or the server failed throughout.
      */
-    private boolean sendBody(String body) {
+    private int sendBody(String body) {
         byte[] bytes = body.getBytes(UTF8);
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
-                if (post(bytes) < 500) return true;
+                int status = post(bytes);
+                if (status < 500) return status;
             } catch (IOException | RuntimeException ignored) {
                 // Network failure or timeout — fall through to retry.
             }
@@ -74,11 +139,11 @@ class Transport {
                     Thread.sleep(retryDelayMillis * (2L << attempt));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return false;
+                    return FAILED;
                 }
             }
         }
-        return false;
+        return FAILED;
     }
 
     /** One POST; returns the status code. */

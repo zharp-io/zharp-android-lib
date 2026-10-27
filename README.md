@@ -14,7 +14,7 @@ In your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("io.zharp:zharp-logs-android:0.1.0")
+    implementation("io.zharp:zharp-logs-android:0.1.1")
 }
 ```
 
@@ -22,7 +22,7 @@ Or `build.gradle` (Groovy):
 
 ```groovy
 dependencies {
-    implementation 'io.zharp:zharp-logs-android:0.1.0'
+    implementation 'io.zharp:zharp-logs-android:0.1.1'
 }
 ```
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- When Zharp rejects the API key (401/403) — deleted, revoked or mistyped — logging says so once
+  in Logcat and stops sending, instead of sending every batch forever. It tries again after an
+  hour and says when the key works again. Nothing piles up meanwhile, and the app is unaffected.
+
 ## 0.1.0
 
 - First release: `ZharpLogger` for Kotlin and Java apps, Android 5.0 and up, no dependencies.
