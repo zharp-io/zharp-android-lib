@@ -3,7 +3,9 @@
 
     <application
         android:name=".SampleApp"
-        android:label="Zharp Java sample">
+        android:label="Zharp Java sample (logs only)"
+        android:usesCleartextTraffic="true">
+        <!-- Cleartext only so the sample can be pointed at a local Zharp (zharp.endpoint). -->
 
         <activity
             android:name=".MainActivity"

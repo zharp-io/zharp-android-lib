@@ -24,13 +24,16 @@ import java.io.IOException
  *
  * Add it with `addInterceptor` (one span per call, retries and redirects included). Requests are
  * never changed for other hosts. Query strings are left out of the recorded URL: they often hold
- * tokens. Retrofit, Coil and anything else built on that client are covered too.
+ * tokens. Retrofit, Coil and anything else built on that client are covered too. With
+ * `tracing = false` it does nothing.
  */
 public class ZharpOkHttpInterceptor : Interceptor {
     @Throws(IOException::class)
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val runtime = Zharp.runtime ?: return chain.proceed(request)
+        // Logs only: no span, and the request goes out untouched.
+        if (!runtime.settings.tracing) return chain.proceed(request)
         val span = guarded(null, "Starting an HTTP span") { startSpan(runtime, request) } ?: return chain.proceed(request)
 
         val scope = guarded(null, "Activating an HTTP span") { span.makeCurrent() }

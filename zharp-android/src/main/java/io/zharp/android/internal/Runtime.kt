@@ -40,6 +40,8 @@ internal class Settings(
     val scheduleDelayMillis: Long = 5_000,
     val maxBatchSize: Int = 100,
     val maxQueueSize: Int = 1_000,
+    /** false: logs only. No spans are made or sent and no trace headers are added. */
+    val tracing: Boolean = true,
 )
 
 /**
@@ -72,7 +74,8 @@ internal class Runtime(
 
     private val stamp = ContextStamp(session, user)
 
-    val tracerProvider: SdkTracerProvider = SdkTracerProvider.builder()
+    /** Null when tracing is off (logs only): nothing makes spans, so nothing sends them. */
+    val tracerProvider: SdkTracerProvider? = if (!settings.tracing) null else SdkTracerProvider.builder()
         .setResource(resource)
         .setSampler(Sampler.parentBased(Sampler.traceIdRatioBased(settings.sampleRate.coerceIn(0.0, 1.0))))
         .addSpanProcessor(ContextSpanProcessor(stamp))
@@ -106,11 +109,12 @@ internal class Runtime(
         .addLogRecordProcessor(SimpleLogRecordProcessor.create(CrashLogExporter(sender)))
         .build()
 
-    val tracer: Tracer = tracerProvider.tracerBuilder(SCOPE).setInstrumentationVersion(VERSION).build()
+    val tracer: Tracer = tracerProvider?.tracerBuilder(SCOPE)?.setInstrumentationVersion(VERSION)?.build()
+        ?: TracerProvider.noop().get(SCOPE)
     private val logger = loggerProvider.loggerBuilder(SCOPE).setInstrumentationVersion(VERSION).build()
     private val crashLogger = crashLoggerProvider.loggerBuilder(SCOPE).setInstrumentationVersion(VERSION).build()
 
-    val openTelemetry: OpenTelemetry = ZharpOpenTelemetry(tracerProvider, loggerProvider)
+    val openTelemetry: OpenTelemetry = ZharpOpenTelemetry(tracerProvider ?: TracerProvider.noop(), loggerProvider)
 
     /** Send what earlier runs left in the outbox (a crash, an offline spell). */
     fun start() {
@@ -191,6 +195,7 @@ internal class Runtime(
     /** A root span for one screen shown: from when it was created or brought back to its first frame. */
     fun screenView(name: String, type: String, startNanos: Long, endNanos: Long) {
         user.screen = name
+        if (!settings.tracing) return
         tracer.spanBuilder("screen $name")
             .setNoParent()
             .setSpanKind(SpanKind.INTERNAL)
@@ -209,10 +214,10 @@ internal class Runtime(
     }
 
     fun flush(): CompletableResultCode =
-        CompletableResultCode.ofAll(listOf(tracerProvider.forceFlush(), loggerProvider.forceFlush()))
+        CompletableResultCode.ofAll(listOfNotNull(tracerProvider?.forceFlush(), loggerProvider.forceFlush()))
 
     fun shutdown(): CompletableResultCode {
-        val done = CompletableResultCode.ofAll(listOf(tracerProvider.shutdown(), loggerProvider.shutdown(), crashLoggerProvider.shutdown()))
+        val done = CompletableResultCode.ofAll(listOfNotNull(tracerProvider?.shutdown(), loggerProvider.shutdown(), crashLoggerProvider.shutdown()))
         done.whenComplete { sender.shutdown() }
         return done
     }

@@ -5,6 +5,12 @@
 - New module `zharp-android`: Application Monitoring on OpenTelemetry Java — crashes, ANRs,
   `captureError`, `Zharp.log.*`, Activity/Fragment screen views, OkHttp CLIENT spans with W3C
   `traceparent` + `baggage` to `tracingOrigins` only, sessions, device context, disk outbox.
+- `tracing = false` (Java: `setTracing(false)`): logs only. Logs, errors, crashes, ANRs, user,
+  session, device and tags still go out; no spans are made or sent, `ZharpOkHttpInterceptor` does
+  nothing, and no `traceparent`/`baggage` headers are added. `startSpan` still runs its block.
+- Replaces `io.zharp:zharp-logs-android`: the `zharp-logs` module and the Kotlin logs sample are
+  removed; `samples/java-app` now uses `zharp-android` with `tracing = false`. The entries below
+  are that library's history.
 
 ## 0.1.1
 

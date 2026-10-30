@@ -10,7 +10,7 @@ import android.widget.TextView;
 import java.util.HashMap;
 import java.util.Map;
 
-import io.zharp.logs.ZharpLogger;
+import io.zharp.android.Zharp;
 
 public class MainActivity extends Activity {
     @Override
@@ -23,7 +23,7 @@ public class MainActivity extends Activity {
         layout.setPadding(48, 48, 48, 48);
 
         TextView status = new TextView(this);
-        status.setText(ZharpLogger.isActive() ? "Logging to Zharp" : "Not logging — set zharp.apiKey in local.properties");
+        status.setText(Zharp.isActive() ? "Logging to Zharp (logs only)" : "Not logging — set zharp.appKey in local.properties");
         layout.addView(status);
 
         layout.addView(button("Send info", new View.OnClickListener() {
@@ -32,7 +32,7 @@ public class MainActivity extends Activity {
                 Map<String, Object> metadata = new HashMap<String, Object>();
                 metadata.put("cartItems", 3);
                 metadata.put("currency", "GHS");
-                ZharpLogger.info("Checkout opened", metadata);
+                Zharp.log.info("Checkout opened", metadata);
             }
         }));
         layout.addView(button("Send warning", new View.OnClickListener() {
@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 Map<String, Object> metadata = new HashMap<String, Object>();
                 metadata.put("latencyMs", 3200);
-                ZharpLogger.warn("Slow network detected", metadata);
+                Zharp.log.warn("Slow network detected", metadata);
             }
         }));
         layout.addView(button("Send caught error", new View.OnClickListener() {
@@ -49,8 +49,15 @@ public class MainActivity extends Activity {
                 try {
                     throw new IllegalStateException("Card declined");
                 } catch (IllegalStateException e) {
-                    ZharpLogger.error("Payment failed", e);
+                    Zharp.log.error("Payment failed", e);
                 }
+            }
+        }));
+        layout.addView(button("Set user", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Zharp.setUser("42", "sample@example.com");
+                Zharp.log.info("User signed in");
             }
         }));
         layout.addView(button("Crash the app", new View.OnClickListener() {

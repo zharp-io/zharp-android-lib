@@ -19,6 +19,8 @@ public class JavaApiTest {
         options.setEnvironment("production");
         options.setTracingOrigins(Collections.singletonList("api.example.com"));
         assertEquals("shop-android", options.getService());
+        assertEquals(true, options.getTracing());
+        options.setTracing(false); // logs only
 
         // Not started: every call is a quiet no-op.
         assertFalse(Zharp.isActive());

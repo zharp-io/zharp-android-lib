@@ -106,6 +106,7 @@ public object Zharp {
                 endpoint = options.endpoint?.trim()?.takeIf { it.isNotEmpty() },
                 tracingOrigins = options.tracingOrigins,
                 sampleRate = options.sampleRate,
+                tracing = options.tracing,
             )
             val next = Runtime(settings, platform.deviceAttributes(), platform.store, platform.outboxDir, user)
             runtime = next
@@ -114,7 +115,7 @@ public object Zharp {
             if (options.captureCrashes) CrashHandler.install { runtime }
             if (!lifecycleRegistered && app is Application) {
                 lifecycleRegistered = true
-                app.registerActivityLifecycleCallbacks(Lifecycle({ runtime }, options.trackScreens))
+                app.registerActivityLifecycleCallbacks(Lifecycle({ runtime }, options.trackScreens && options.tracing))
             }
             if (options.detectAnrs && anrWatchdog == null) {
                 anrWatchdog = AnrWatchdog({ runtime }, options.anrThresholdMillis.coerceAtLeast(1_000)).also { it.start() }
@@ -122,7 +123,8 @@ public object Zharp {
 
             Diagnostics.info(
                 "Application Monitoring active: service \"${settings.service}\"" +
-                    (settings.environment?.let { ", environment \"$it\"" } ?: ""),
+                    (settings.environment?.let { ", environment \"$it\"" } ?: "") +
+                    (if (settings.tracing) "" else " (logs only: tracing = false)"),
             )
         } catch (error: Throwable) {
             runtime = null
@@ -185,6 +187,7 @@ public object Zharp {
      * Run [block] inside a span named [name], the current span while it runs (so HTTP calls and
      * logs made inside belong to it). An exception thrown by [block] marks the span failed and is
      * rethrown untouched; report it where you catch it (or let it crash, and it's reported then).
+     * With `tracing = false` no span is made; [block] still runs (with a no-op span).
      */
     @JvmStatic
     public fun <T> startSpan(name: String, block: (Span) -> T): T {

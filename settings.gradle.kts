@@ -16,8 +16,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "zharp-android"
 
-include(":zharp-logs")
 include(":zharp-android")
-include(":samples:kotlin-app")
 include(":samples:java-app")
 include(":samples:monitoring-app")

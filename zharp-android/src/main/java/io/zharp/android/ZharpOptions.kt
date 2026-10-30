@@ -37,6 +37,14 @@ public class ZharpOptions {
      */
     public var tracingOrigins: List<String> = emptyList()
 
+    /**
+     * `false` is logs only: logs, errors, crashes, ANRs, the user, session, device and tags still
+     * go to Zharp, but no spans are made or sent: no screen-view or HTTP spans, nothing from
+     * [Zharp.startSpan] (its block still runs), and no `traceparent`/`baggage` headers added to
+     * requests, whatever [tracingOrigins] says.
+     */
+    public var tracing: Boolean = true
+
     /** Share of traces to keep, 0.0–1.0. Errors, crashes, ANRs and logs are always sent. */
     public var sampleRate: Double = 1.0
 

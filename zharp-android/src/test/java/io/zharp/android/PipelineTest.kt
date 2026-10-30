@@ -49,7 +49,12 @@ class PipelineTest {
         collector.stop()
     }
 
-    private fun runtime(endpoint: String, tracingOrigins: List<String> = emptyList(), sampleRate: Double = 1.0): Runtime {
+    private fun runtime(
+        endpoint: String,
+        tracingOrigins: List<String> = emptyList(),
+        sampleRate: Double = 1.0,
+        tracing: Boolean = true,
+    ): Runtime {
         val settings = Settings(
             key = "zpk_test",
             service = "shop-android",
@@ -59,6 +64,7 @@ class PipelineTest {
             tracingOrigins = tracingOrigins,
             sampleRate = sampleRate,
             scheduleDelayMillis = 100,
+            tracing = tracing,
         )
         val device = Attributes.builder()
             .put(Keys.OS_NAME, "Android").put(Keys.OS_VERSION, "15")
@@ -251,6 +257,59 @@ class PipelineTest {
         assertTrue(eventually { collector.logRecords().isNotEmpty() })
         assertEquals("still reported", attrs(collector.logRecords().single().attributesList)["exception.message"])
         assertTrue(collector.spans().isEmpty())
+    }
+
+    @Test
+    fun tracingOffSendsLogsAndErrorsButNoSpansOrTraceHeaders() {
+        Zharp.startForTests(null)
+        runtime.shutdown().join(5, TimeUnit.SECONDS)
+        runtime = runtime(collector.endpoint, tracingOrigins = listOf("127.0.0.1"), tracing = false)
+        Zharp.startForTests(runtime)
+
+        val client = OkHttpClient.Builder().addInterceptor(ZharpOkHttpInterceptor()).build()
+        val target = FakeCollector()
+        try {
+            // startSpan still runs its block and returns its value.
+            val result = Zharp.startSpan("checkout") {
+                Zharp.log.info("Paying", mapOf("items" to 3))
+                Zharp.captureError(IllegalStateException("Card declined"))
+                // A tracing origin, but tracing is off: the request goes out untouched.
+                client.newCall(Request.Builder().url("http://127.0.0.1:${target.port}/orders").build()).execute().close()
+                "done"
+            }
+            assertEquals("done", result)
+            runtime.screenView("CheckoutActivity", "activity", 1_000_000_000L, 1_250_000_000L)
+            Zharp.flush()
+            assertTrue(eventually { collector.logRecords().size == 2 })
+
+            val sent = target.requests.single { it.path == "/orders" }
+            assertFalse(sent.headers.containsKey("traceparent"))
+            assertFalse(sent.headers.containsKey("baggage"))
+
+            val info = collector.logRecords().single { it.body.stringValue == "Paying" }
+            val i = attrs(info.attributesList)
+            assertEquals("3", i["items"])
+            assertEquals(Zharp.sessionId, i["session.id"])
+            assertEquals("user-42", i["enduser.id"])
+            assertEquals("pro", i["plan"])
+            assertTrue("no trace to belong to", info.traceId.isEmpty)
+
+            val error = collector.logRecords().single { attrs(it.attributesList).containsKey("exception.type") }
+            val e = attrs(error.attributesList)
+            assertEquals(17, error.severityNumberValue)
+            assertEquals("java.lang.IllegalStateException", e["exception.type"])
+            assertEquals("Card declined", e["exception.message"])
+            assertEquals("true", e["zharp.handled"])
+            assertEquals("user-42", e["enduser.id"])
+            // The screen is still remembered for later logs, though no screen span was made.
+            assertEquals("CheckoutActivity", Zharp.user.screen)
+
+            Thread.sleep(300)
+            assertTrue(collector.spans().isEmpty())
+            assertTrue("nothing sent to the traces endpoint", collector.traces().isEmpty())
+        } finally {
+            target.stop()
+        }
     }
 
     @Test
