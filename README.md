@@ -91,8 +91,44 @@ no-op span; `captureError` inside it is sent as an error log.
 
 ## R8 / ProGuard
 
-Nothing to add: the library ships its own consumer rules. Stacks from a minified release build are
-obfuscated as usual; retrace them with your `mapping.txt`.
+Nothing to add: the library ships its own consumer rules.
+
+### Readable stack traces from minified builds
+
+Add Zharp's Gradle plugin to the app module and Zharp shows crashes and errors from R8/ProGuard
+builds with the original classes, methods, files and lines (grouped by them too):
+
+```kotlin
+// app/build.gradle.kts
+plugins {
+    id("com.android.application")
+    id("io.zharp.android-gradle") version "1.0.0"
+}
+
+zharp {
+    appId = "123"   // the application's ID in Zharp
+}
+```
+
+For each minified variant the plugin gives the build a new UUID, writes it into the app (the
+asset `zharp-debug-meta.properties`, which the SDK puts on every error as `zharp.proguard_uuid`),
+and after `minify<Variant>WithR8` uploads that build's `mapping.txt` under it — no Node needed.
+
+The upload needs a workspace API key with the **artifacts:write** scope. It's a secret: set
+`ZHARP_AUTH_TOKEN` in CI, or `zharp.authToken=zh_…` in `~/.gradle/gradle.properties`; never in
+the repo. Without one the upload is a dry run that prints what it would send, so local builds
+work as before.
+
+| Option | Also from | Default |
+|---|---|---|
+| `appId` | `ZHARP_APP_ID`, `-Pzharp.appId` | — |
+| `authToken` | `ZHARP_AUTH_TOKEN`, `-Pzharp.authToken` | none: dry run |
+| `url` | `ZHARP_URL`, `-Pzharp.url` | `https://api.zharp.io` |
+| `uploadMappings` | | `true` (`false` still writes the UUID and prints it) |
+| `failOnUploadError` | | `true` |
+
+Uploading yourself instead (with `uploadMappings = false`): take the UUID from the build output
+and run `npx @zharp/cli proguard upload app/build/outputs/mapping/release/mapping.txt --app 123 --uuid <uuid>`.
 
 ## Samples
 

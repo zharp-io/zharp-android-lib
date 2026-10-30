@@ -54,6 +54,7 @@ class PipelineTest {
         tracingOrigins: List<String> = emptyList(),
         sampleRate: Double = 1.0,
         tracing: Boolean = true,
+        proguardUuid: String? = null,
     ): Runtime {
         val settings = Settings(
             key = "zpk_test",
@@ -65,6 +66,7 @@ class PipelineTest {
             sampleRate = sampleRate,
             scheduleDelayMillis = 100,
             tracing = tracing,
+            proguardUuid = proguardUuid,
         )
         val device = Attributes.builder()
             .put(Keys.OS_NAME, "Android").put(Keys.OS_VERSION, "15")
@@ -186,6 +188,48 @@ class PipelineTest {
         assertEquals("ApplicationNotResponding", a["exception.type"])
         assertEquals("false", a["zharp.handled"])
         assertTrue(a["exception.stacktrace"]!!.startsWith("ApplicationNotResponding: The main thread was blocked for 5.0 s\n\tat "))
+    }
+
+    @Test
+    fun everyErrorCarriesTheProguardUuidAndNothingElseDoes() {
+        Zharp.startForTests(null)
+        runtime.shutdown().join(5, TimeUnit.SECONDS)
+        val uuid = "1b4e28ba-2fa1-4d3b-a3f5-ef19b5a7633b"
+        runtime = runtime(collector.endpoint, proguardUuid = uuid)
+        Zharp.startForTests(runtime)
+
+        Zharp.startSpan("checkout") { span ->
+            Zharp.captureError(IllegalStateException("in a span"))
+            // Recorded by the app through OpenTelemetry directly, not through Zharp.captureError.
+            span.recordException(IllegalArgumentException("recorded directly"))
+        }
+        Zharp.captureError(IllegalArgumentException("outside a span"))
+        Zharp.log.info("Just a log")
+        Zharp.flush()
+        assertTrue(eventually { collector.spans().isNotEmpty() && collector.logRecords().size == 2 })
+
+        val events = collector.spans().single().eventsList.filter { it.name == "exception" }
+        assertEquals(2, events.size)
+        for (event in events) assertEquals(uuid, attrs(event.attributesList)["zharp.proguard_uuid"])
+        assertFalse(attrs(collector.spans().single().attributesList).containsKey("zharp.proguard_uuid"))
+
+        val logs = collector.logRecords().associateBy { it.body.stringValue }
+        assertEquals(uuid, attrs(logs.getValue("outside a span").attributesList)["zharp.proguard_uuid"])
+        assertFalse(attrs(logs.getValue("Just a log").attributesList).containsKey("zharp.proguard_uuid"))
+
+        collector.requests.clear()
+        runtime.reportCrash(Thread.currentThread(), RuntimeException("boom"))
+        runtime.reportAnr(Thread.currentThread().stackTrace, 5_000)
+        assertTrue(eventually { collector.logRecords().size == 2 })
+        for (log in collector.logRecords()) assertEquals(uuid, attrs(log.attributesList)["zharp.proguard_uuid"])
+    }
+
+    @Test
+    fun withoutAMappingErrorsHaveNoProguardUuid() {
+        Zharp.captureError(IllegalArgumentException("bad input"))
+        Zharp.flush()
+        assertTrue(eventually { collector.logRecords().isNotEmpty() })
+        assertFalse(attrs(collector.logRecords().single().attributesList).containsKey("zharp.proguard_uuid"))
     }
 
     @Test

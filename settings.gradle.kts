@@ -1,4 +1,6 @@
 pluginManagement {
+    // io.zharp.android-gradle, built from source so the samples use the plugin as it is here.
+    includeBuild("zharp-gradle-plugin")
     repositories {
         google()
         mavenCentral()

@@ -3,6 +3,7 @@ package io.zharp.android
 import io.opentelemetry.exporter.internal.otlp.logs.LogsRequestMarshaler
 import io.opentelemetry.exporter.internal.otlp.traces.TraceRequestMarshaler
 import io.zharp.android.internal.AndroidPlatform
+import io.zharp.android.internal.BuildIds
 import io.zharp.android.internal.MemoryStore
 import io.zharp.android.internal.Outbox
 import io.zharp.android.internal.Outcome
@@ -194,5 +195,12 @@ class TransportTest {
         now += 2_000
         assertTrue(outbox.pending().isEmpty())
     }
-}
 
+    @Test
+    fun proguardUuidIsReadFromThePluginsAsset() {
+        fun read(text: String) = BuildIds.proguardUuid(text.byteInputStream())
+        assertEquals("1b4e28ba-2fa1-4d3b-a3f5-ef19b5a7633b", read("# Written by io.zharp.android-gradle\nio.zharp.proguard.uuid=1b4e28ba-2fa1-4d3b-a3f5-ef19b5a7633b\n"))
+        assertEquals(null, read("io.zharp.proguard.uuid=  \n"))
+        assertEquals(null, read(""))
+    }
+}

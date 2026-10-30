@@ -35,6 +35,7 @@ internal object Keys {
     val ERROR_KIND: AttributeKey<String> = AttributeKey.stringKey("zharp.error.kind")
     val THREAD_NAME: AttributeKey<String> = AttributeKey.stringKey("thread.name")
     val ERROR_TYPE: AttributeKey<String> = AttributeKey.stringKey("error.type")
+    val PROGUARD_UUID: AttributeKey<String> = AttributeKey.stringKey("zharp.proguard_uuid")
 
     val HTTP_METHOD: AttributeKey<String> = AttributeKey.stringKey("http.request.method")
     val HTTP_STATUS: AttributeKey<Long> = AttributeKey.longKey("http.response.status_code")

@@ -3,11 +3,14 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // Tags each minified build with a UUID and uploads its mapping.txt, so crashes read as source.
+    id("io.zharp.android-gradle")
 }
 
 // Your app key (zpk_…) and, optionally, a local Zharp, from local.properties — never committed:
 //   zharp.appKey=zpk_…
 //   zharp.endpoint=http://10.0.2.2:3000/api/v1/otlp
+//   zharp.appId=123            (the application's ID, for the mapping upload)
 val local = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -52,6 +55,13 @@ kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
+}
+
+// The release build's mapping.txt goes to Zharp when ZHARP_AUTH_TOKEN (an API key with the
+// artifacts:write scope) is set, e.g. ZHARP_URL=http://localhost:3000 for a local Zharp; without a
+// token the upload is a dry run that prints what it would send.
+zharp {
+    local.getProperty("zharp.appId")?.let { appId = it }
 }
 
 dependencies {

@@ -8,6 +8,11 @@
 - `tracing = false` (Java: `setTracing(false)`): logs only. Logs, errors, crashes, ANRs, user,
   session, device and tags still go out; no spans are made or sent, `ZharpOkHttpInterceptor` does
   nothing, and no `traceparent`/`baggage` headers are added. `startSpan` still runs its block.
+- Readable stack traces from minified builds: the new Gradle plugin `io.zharp.android-gradle`
+  (module `zharp-gradle-plugin`) writes a UUID into each R8/ProGuard build and uploads its
+  `mapping.txt` to Zharp (`POST /api/v1/applications/:id/artifacts`, kind `proguard`); the SDK
+  puts that UUID on every error — exception events, error logs, crashes, ANRs — as
+  `zharp.proguard_uuid`.
 - Replaces `io.zharp:zharp-logs-android`: the `zharp-logs` module and the Kotlin logs sample are
   removed; `samples/java-app` now uses `zharp-android` with `tracing = false`. The entries below
   are that library's history.

@@ -23,6 +23,7 @@ import io.opentelemetry.sdk.logs.export.SimpleLogRecordProcessor
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor
+import io.opentelemetry.sdk.trace.export.SpanExporter
 import io.opentelemetry.sdk.trace.samplers.Sampler
 import io.zharp.android.BuildConfig
 import java.io.File
@@ -42,6 +43,8 @@ internal class Settings(
     val maxQueueSize: Int = 1_000,
     /** false: logs only. No spans are made or sent and no trace headers are added. */
     val tracing: Boolean = true,
+    /** The R8/ProGuard mapping's UUID from the Gradle plugin; on every error when set. */
+    val proguardUuid: String? = null,
 )
 
 /**
@@ -80,7 +83,7 @@ internal class Runtime(
         .setSampler(Sampler.parentBased(Sampler.traceIdRatioBased(settings.sampleRate.coerceIn(0.0, 1.0))))
         .addSpanProcessor(ContextSpanProcessor(stamp))
         .addSpanProcessor(
-            BatchSpanProcessor.builder(ZharpSpanExporter(sender))
+            BatchSpanProcessor.builder(withBuildId(ZharpSpanExporter(sender)))
                 .setScheduleDelay(settings.scheduleDelayMillis, TimeUnit.MILLISECONDS)
                 .setMaxExportBatchSize(settings.maxBatchSize)
                 .setMaxQueueSize(settings.maxQueueSize)
@@ -92,6 +95,7 @@ internal class Runtime(
     val loggerProvider: SdkLoggerProvider = SdkLoggerProvider.builder()
         .setResource(resource)
         .addLogRecordProcessor(ContextLogProcessor(stamp))
+        .apply { settings.proguardUuid?.let { addLogRecordProcessor(BuildIdLogProcessor(it)) } }
         .addLogRecordProcessor(
             BatchLogRecordProcessor.builder(ZharpLogExporter(sender))
                 .setScheduleDelay(settings.scheduleDelayMillis, TimeUnit.MILLISECONDS)
@@ -106,6 +110,7 @@ internal class Runtime(
     private val crashLoggerProvider: SdkLoggerProvider = SdkLoggerProvider.builder()
         .setResource(resource)
         .addLogRecordProcessor(ContextLogProcessor(stamp))
+        .apply { settings.proguardUuid?.let { addLogRecordProcessor(BuildIdLogProcessor(it)) } }
         .addLogRecordProcessor(SimpleLogRecordProcessor.create(CrashLogExporter(sender)))
         .build()
 
@@ -115,6 +120,9 @@ internal class Runtime(
     private val crashLogger = crashLoggerProvider.loggerBuilder(SCOPE).setInstrumentationVersion(VERSION).build()
 
     val openTelemetry: OpenTelemetry = ZharpOpenTelemetry(tracerProvider ?: TracerProvider.noop(), loggerProvider)
+
+    private fun withBuildId(exporter: SpanExporter): SpanExporter =
+        settings.proguardUuid?.let { BuildIdSpanExporter(it, exporter) } ?: exporter
 
     /** Send what earlier runs left in the outbox (a crash, an offline spell). */
     fun start() {

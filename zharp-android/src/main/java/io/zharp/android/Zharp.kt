@@ -107,7 +107,9 @@ public object Zharp {
                 tracingOrigins = options.tracingOrigins,
                 sampleRate = options.sampleRate,
                 tracing = options.tracing,
+                proguardUuid = platform.proguardUuid,
             )
+            settings.proguardUuid?.let { Diagnostics.debug("ProGuard UUID $it: errors are deobfuscated with the mapping uploaded for it") }
             val next = Runtime(settings, platform.deviceAttributes(), platform.store, platform.outboxDir, user)
             runtime = next
             next.start()

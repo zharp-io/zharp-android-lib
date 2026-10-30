@@ -20,6 +20,16 @@ internal class AndroidPlatform(private val context: Context) {
         info.versionName?.let { "$it ($code)" }
     }
 
+    /** Written into minified builds by Zharp's Gradle plugin; null otherwise. */
+    val proguardUuid: String? = try {
+        BuildIds.proguardUuid(context.assets.open(BuildIds.ASSET))
+    } catch (missing: java.io.FileNotFoundException) {
+        null
+    } catch (failed: Throwable) {
+        Diagnostics.warn("Couldn't read ${BuildIds.ASSET}; errors won't be deobfuscated", failed)
+        null
+    }
+
     /** Kept out of backups: a restored outbox from another device would be sent as this one's. */
     val outboxDir: File = File(context.noBackupFilesDir ?: context.filesDir, "zharp/outbox")
 
