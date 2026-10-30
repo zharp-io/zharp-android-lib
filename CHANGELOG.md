@@ -1,5 +1,11 @@
 # Changelog
 
+## io.zharp:android 1.0.0 (unreleased)
+
+- New module `zharp-android`: Application Monitoring on OpenTelemetry Java — crashes, ANRs,
+  `captureError`, `Zharp.log.*`, Activity/Fragment screen views, OkHttp CLIENT spans with W3C
+  `traceparent` + `baggage` to `tracingOrigins` only, sessions, device context, disk outbox.
+
 ## 0.1.1
 
 - When Zharp rejects the API key (401/403) — deleted, revoked or mistyped — logging says so once

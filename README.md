@@ -6,6 +6,11 @@ app and reads naturally from Kotlin. Android 5.0 (API 21) and up.
 
 Full documentation: [zharp.io/docs/sdks/android](https://zharp.io/docs/sdks/android)
 
+> **New: Application Monitoring — `io.zharp:android`** (module `zharp-android`). Crashes, ANRs,
+> caught errors, logs, screen views and OkHttp traces, sent to Zharp as OpenTelemetry. See
+> [Application Monitoring](#application-monitoring-iozharpandroid) below. `zharp-logs-android`
+> stays available for logs only.
+
 ---
 
 ## 1. Install
@@ -223,6 +228,65 @@ Timber.plant(ZharpTree())
 
 Turn off `logcat` in the config if a `DebugTree` already writes to Logcat, or you'll see each line
 twice.
+
+## Application Monitoring (`io.zharp:android`)
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    implementation("io.zharp:android:1.0.0")
+}
+```
+
+```kotlin
+class ShopApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        Zharp.init(this) {
+            key = "zpk_…"                          // the app key from Zharp
+            service = "shop-android"
+            environment = "production"
+            tracingOrigins = listOf("api.example.com") // your API: traces continue into it
+        }
+    }
+}
+
+// After sign-in / sign-out:
+Zharp.setUser(id = user.id, email = user.email)
+Zharp.clearUser()                                 // also starts a new session
+
+Zharp.log.info("Checkout opened", mapOf("items" to 3))
+Zharp.captureError(e, mapOf("orderId" to 99))      // a caught exception, with its stack
+Zharp.startSpan("load orders") { /* … */ }
+Zharp.setTag("plan", "pro")
+
+val client = OkHttpClient.Builder().addInterceptor(ZharpOkHttpInterceptor()).build()
+```
+
+Java: `ZharpOptions options = new ZharpOptions(); options.setKey("zpk_…"); Zharp.init(this, options);`,
+then `Zharp.log.info(…)`, `Zharp.captureError(e)` and so on.
+
+**Automatic:** uncaught exceptions (written to disk first, sent at once or on the next launch),
+ANRs (main thread blocked 5 s), a span per Activity / AndroidX Fragment shown, sessions (new after
+30 minutes in the background or on `clearUser`), device and OS on everything, an install-scoped
+random `device.id`. Logcat is not read.
+
+**Sending:** OTLP/protobuf, gzipped, batched every 5 s or 100 records; retried with backoff;
+batches that still fail wait on disk (capped at 200 files / 8 MB / 3 days) and go when the network
+is back. A rejected key is said once in Logcat and sending pauses for an hour. Nothing throws into
+the app.
+
+**Requirements:** Android 5.0 (API 21)+. Built on the OpenTelemetry Java SDK, which needs core
+library desugaring when the app's `minSdk` is below 26:
+
+```kotlin
+android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
+dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5") }
+```
+
+Without it, on Android 7.1 and older Zharp stays off (one Logcat line) rather than fail. R8 rules
+ship with the library. `Zharp.openTelemetry` hands out the underlying OpenTelemetry instance for
+anything else. Sample: `samples/monitoring-app` (key from `zharp.appKey` in `local.properties`).
 
 ## R8 / ProGuard
 
