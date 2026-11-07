@@ -1,5 +1,9 @@
+import com.vanniktech.maven.publish.GradlePlugin
+import com.vanniktech.maven.publish.JavadocJar
+
 plugins {
     `kotlin-dsl`
+    id("com.vanniktech.maven.publish") version "0.34.0"
 }
 
 group = "io.zharp"
@@ -54,5 +58,44 @@ tasks.test {
         events("passed", "skipped", "failed")
         showStandardStreams = true
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
+
+// Published to Maven Central (not the Gradle Plugin Portal): the implementation as
+// io.zharp:zharp-gradle-plugin and the plugin marker io.zharp.android-gradle:io.zharp.android-gradle.gradle.plugin,
+// so `id("io.zharp.android-gradle")` resolves wherever pluginManagement has mavenCentral() (the
+// Android default). Credentials and the signing key come from ~/.gradle/gradle.properties.
+mavenPublishing {
+    publishToMavenCentral()
+    if (providers.gradleProperty("signing.keyId").isPresent || providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
+    coordinates(project.group.toString(), "zharp-gradle-plugin", project.version.toString())
+    configure(GradlePlugin(javadocJar = JavadocJar.Empty(), sourcesJar = true))
+
+    pom {
+        name.set("Zharp for Android Gradle plugin")
+        description.set("Readable stack traces in Zharp for R8/ProGuard-minified Android apps: tags each build with a UUID and uploads its mapping.txt.")
+        inceptionYear.set("2026")
+        url.set("https://github.com/zharp-io/zharp-android-lib")
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+                distribution.set("repo")
+            }
+        }
+        developers {
+            developer {
+                id.set("zharp")
+                name.set("Zharp")
+                url.set("https://zharp.io")
+            }
+        }
+        scm {
+            url.set("https://github.com/zharp-io/zharp-android-lib")
+            connection.set("scm:git:https://github.com/zharp-io/zharp-android-lib.git")
+            developerConnection.set("scm:git:ssh://git@github.com/zharp-io/zharp-android-lib.git")
+        }
     }
 }

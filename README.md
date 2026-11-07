@@ -146,18 +146,27 @@ zharp.endpoint=http://10.0.2.2:3000/api/v1/otlp
 
 ## Releasing (maintainers)
 
-Published to Maven Central as `io.zharp:android` (namespace `io.zharp`, verified on
-[central.sonatype.com](https://central.sonatype.com)).
+Both go to Maven Central (namespace `io.zharp`, verified on
+[central.sonatype.com](https://central.sonatype.com)):
+
+- the library, `io.zharp:android` (module `zharp-android`);
+- the Gradle plugin, `io.zharp:zharp-gradle-plugin` plus its plugin marker
+  `io.zharp.android-gradle:io.zharp.android-gradle.gradle.plugin` (the included build
+  `zharp-gradle-plugin`). It is not on the Gradle Plugin Portal: `id("io.zharp.android-gradle")`
+  resolves from `mavenCentral()` in `pluginManagement`, which new Android projects already have.
 
 ### Each release
 
-1. Bump `ZHARP_ANDROID_VERSION` in `gradle.properties` and add the changes to `CHANGELOG.md`.
-2. Upload:
+1. Bump `ZHARP_ANDROID_VERSION` in `gradle.properties` and `version` in
+   `zharp-gradle-plugin/build.gradle.kts` (they ship together), and add the changes to `CHANGELOG.md`.
+2. Upload both:
    ```bash
    ./gradlew :zharp-android:publishToMavenCentral
+   ./gradlew -p zharp-gradle-plugin publishToMavenCentral
    ```
-3. On central.sonatype.com → **Publishing Settings** → **Deployments**, wait for the new version to
-   show **Validated**, then click **Publish**. It's installable 10–30 minutes later.
+3. On central.sonatype.com → **Publishing Settings** → **Deployments**, wait for both new
+   deployments to show **Validated**, then click **Publish** on each. They're installable 10–30
+   minutes later.
 4. Tag it: `git tag -a v1.0.0 -m "1.0.0" && git push origin v1.0.0`.
 
 ### One-time setup on a new machine
@@ -194,8 +203,9 @@ above, wait until `https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x<FING
 then **Drop** the failed deployment and upload again. (keys.openpgp.org hides a key's name until
 its email is confirmed, so Maven Central may not accept it from there.)
 
-Without a signing key, `./gradlew :zharp-android:publishToMavenLocal` still works (unsigned), for
-trying a build in another project locally.
+Without a signing key, `./gradlew :zharp-android:publishToMavenLocal` and
+`./gradlew -p zharp-gradle-plugin publishToMavenLocal` still work (unsigned), for trying a build in
+another project locally (add `mavenLocal()` to its `pluginManagement` and dependency repositories).
 
 ## License
 
