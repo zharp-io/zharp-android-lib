@@ -68,6 +68,31 @@ Without it, on Android 7.1 and older Zharp stays off (one Logcat line) rather th
 ship with the library. `Zharp.openTelemetry` hands out the underlying OpenTelemetry instance for
 anything else.
 
+## Request and response bodies
+
+Off by default. Set `captureBodies` to see what a call sent and what came back, on its span:
+
+```kotlin
+Zharp.init(this) {
+    key = "zpk_…"
+    captureBodies = BodyCapture.errors()     // failed calls only (400+, or no response)
+    // or: BodyCapture.all().apply { redactKeys = listOf("dateOfBirth"); maxSize = 64 * 1024 }
+}
+```
+
+Java: `options.setCaptureBodies(BodyCapture.errors());`
+
+- Your tracing origins only when you have set some (or `urls`), else every call through the client.
+- Text is kept up to 32 KB (`maxSize`, at most 128 KB). Every field name stays; values under
+  secret-looking keys (`password`, `token`, `authorization`, `card`, …) become `[Filtered]` on the
+  device. Files in multipart uploads show as `[file photo.png · image/png · 240 KB]`, inline
+  images as `[image/png · 24 KB]`, other bodies as `[binary · image/png · 24 KB]` or `[event stream]`.
+- The request is never changed and one-shot bodies are never written twice; the response is read
+  with `peekBody`, so the app still reads all of it.
+
+Secret-looking query values (`?token=`, `key`, `sig`, …) are recorded as `[Filtered]` whether or
+not bodies are on.
+
 ## Logs only
 
 Turn tracing off to send logs and errors without traces:

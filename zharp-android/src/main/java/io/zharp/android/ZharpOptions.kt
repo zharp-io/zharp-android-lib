@@ -45,6 +45,13 @@ public class ZharpOptions {
      */
     public var tracing: Boolean = true
 
+    /**
+     * Request and response bodies on HTTP spans. `null` (the default) is off; [BodyCapture.errors]
+     * keeps them for failed calls, [BodyCapture.all] for every call. See [BodyCapture] for what is
+     * sent and what is filtered. Secret-looking query values in URLs are filtered either way.
+     */
+    public var captureBodies: BodyCapture? = null
+
     /** Share of traces to keep, 0.0–1.0. Errors, crashes, ANRs and logs are always sent. */
     public var sampleRate: Double = 1.0
 

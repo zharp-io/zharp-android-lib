@@ -275,7 +275,7 @@ class PipelineTest {
             assertEquals(ProtoSpan.SpanKind.SPAN_KIND_CLIENT, span.kind)
             assertEquals("GET", a["http.request.method"])
             assertEquals("200", a["http.response.status_code"])
-            assertFalse("query strings are left out", a["url.full"]!!.contains("token"))
+            assertEquals("secret query values are filtered", "http://127.0.0.1:${target.port}/orders?token=[Filtered]", a["url.full"])
             assertEquals(traceparent.split('-')[1], hex(span.traceId))
             assertEquals(traceparent.split('-')[2], hex(span.spanId))
         } finally {

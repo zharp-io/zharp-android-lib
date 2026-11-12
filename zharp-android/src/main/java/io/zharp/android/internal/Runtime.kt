@@ -45,6 +45,8 @@ internal class Settings(
     val tracing: Boolean = true,
     /** The R8/ProGuard mapping's UUID from the Gradle plugin; on every error when set. */
     val proguardUuid: String? = null,
+    /** `captureBodies`, or null when it is off. */
+    val bodies: BodySettings? = null,
 )
 
 /**
@@ -61,6 +63,12 @@ internal class Runtime(
 ) {
     val session = SessionManager(store)
     val origins = TracingOrigins(settings.tracingOrigins)
+
+    /** Which calls have their bodies captured: `captureBodies.urls`, else the tracing origins, else all. */
+    val bodyUrls: TracingOrigins? = settings.bodies?.let { b ->
+        val list = b.urls.ifEmpty { settings.tracingOrigins }
+        if (list.isEmpty()) null else TracingOrigins(list)
+    }
     val sender = Sender(transport, Outbox(outboxDir))
 
     val resource: Resource = Resource.create(

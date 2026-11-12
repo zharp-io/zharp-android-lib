@@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.zharp.android.internal.AndroidPlatform
 import io.zharp.android.internal.AnrWatchdog
+import io.zharp.android.internal.BodySettings
 import io.zharp.android.internal.CrashHandler
 import io.zharp.android.internal.Diagnostics
 import io.zharp.android.internal.Keys
@@ -108,6 +109,14 @@ public object Zharp {
                 sampleRate = options.sampleRate,
                 tracing = options.tracing,
                 proguardUuid = platform.proguardUuid,
+                bodies = options.captureBodies?.let {
+                    BodySettings(
+                        all = it.mode == BodyCapture.Mode.ALL,
+                        maxSize = BodySettings.clampSize(it.maxSize),
+                        extraKeys = it.redactKeys,
+                        urls = it.urls,
+                    )
+                },
             )
             settings.proguardUuid?.let { Diagnostics.debug("ProGuard UUID $it: errors are deobfuscated with the mapping uploaded for it") }
             val next = Runtime(settings, platform.deviceAttributes(), platform.store, platform.outboxDir, user)
