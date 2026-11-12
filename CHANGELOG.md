@@ -1,6 +1,6 @@
 # Changelog
 
-## io.zharp:android 1.0.0 (unreleased)
+## io.zharp:android 1.1.0
 
 - `captureBodies` (Java: `setCaptureBodies`): request and response bodies on OkHttp spans, off by
   default. `BodyCapture.errors()` for failed calls, `BodyCapture.all()` for every call; `maxSize`
@@ -9,6 +9,9 @@
   bodies described, never sent.
 - `url.full` now includes the query string, with secret-looking values (`token`, `key`, `sig`,
   `password`, …) recorded as `[Filtered]`; it used to drop the query string entirely.
+
+## io.zharp:android 1.0.0
+
 - New module `zharp-android`: Application Monitoring on OpenTelemetry Java — crashes, ANRs,
   `captureError`, `Zharp.log.*`, Activity/Fragment screen views, OkHttp CLIENT spans with W3C
   `traceparent` + `baggage` to `tracingOrigins` only, sessions, device context, disk outbox.
