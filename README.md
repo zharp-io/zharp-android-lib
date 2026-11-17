@@ -49,7 +49,7 @@ then `Zharp.log.info(…)`, `Zharp.captureError(e)` and so on.
 **Automatic:** uncaught exceptions (written to disk first, sent at once or on the next launch),
 ANRs (main thread blocked 5 s), a span per Activity / AndroidX Fragment shown, sessions (new after
 30 minutes in the background or on `clearUser`), device and OS on everything, an install-scoped
-random `device.id`. Logcat is not read.
+random `device.id`, and every log the app writes ([below](#every-log-the-app-writes)).
 
 **Sending:** OTLP/protobuf, gzipped, batched every 5 s or 100 records; retried with backoff;
 batches that still fail wait on disk (capped at 200 files / 8 MB / 3 days) and go when the network
@@ -67,6 +67,46 @@ dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 Without it, on Android 7.1 and older Zharp stays off (one Logcat line) rather than fail. R8 rules
 ship with the library. `Zharp.openTelemetry` hands out the underlying OpenTelemetry instance for
 anything else.
+
+## Every log the app writes
+
+`Zharp.log` is not the only way in: with `captureOutput` (on by default) whatever the app logs is
+sent too, each line still printed exactly as before, and each line sent once however many of
+these see it.
+
+| How the app logs | How it is caught | Trace it was written in |
+|---|---|---|
+| Timber (4.x or 5.x) | a tree planted at init when the app has Timber | yes |
+| `System.out` / `System.err` | the streams are teed; `printStackTrace()` is one record | yes |
+| java.util.logging | a handler on the root logger | yes |
+| `io.zharp.android.Log` | a drop-in for `android.util.Log`: change the import | yes |
+| `android.util.Log`, libraries, native code | the app's own Logcat (`captureLogcat`, Android 7.0+) | no: session, user and screen only |
+
+```kotlin
+Zharp.init(this) {
+    key = "zpk_…"
+    captureOutputLevel = LogLevel.DEBUG  // default INFO; Zharp.log is always sent
+    captureLogcat = false                // keep the exact captures, skip reading Logcat
+    // captureOutput = false             // only Zharp.log
+}
+```
+
+- **Level:** Timber, `Log` and Logcat give their own (V/D/I/W/E, `wtf`/F as fatal);
+  java.util.logging's maps SEVERE → error, WARNING → warn, INFO → info, FINE/CONFIG → debug. A
+  printed line's level is read from the line: a JSON record's `level`/`severity` (pino's numbers
+  too) with its `msg`/`message` as the body, `E/Tag:`, or a level word near the start (`ERROR`,
+  `[warn]`, `level=error`); otherwise `System.out` is info and `System.err` a warning.
+- **Logcat:** the SDK runs `logcat -v long --pid=<the app> *:<level>`. An app sees only its own
+  Logcat lines and needs no permission for that (Android 4.1+; Android 13's log-access prompt is
+  only for apps holding READ_LOGS). The logcat process waits in a blocking read, so a quiet app
+  costs nothing but that idle process. Logcat lines are read on another thread after they were
+  written, so they carry the session, user and screen but not the span; log through Timber,
+  `Zharp.log` or `io.zharp.android.Log` where the trace matters. The app's lines from before
+  `init` (same process) are sent once; Logcat's own `chatty` lines and the SDK's are not.
+- **Once:** what an exact capture sent is remembered for 5 seconds and its Logcat copy skipped;
+  `System.out`/`System.err` lines in Logcat are left to their own capture.
+- Lines over 32 KB are cut; colour codes are removed. Nothing here throws into the app or blocks
+  it: Logcat is read and gathered lines are sent on low-priority background threads.
 
 ## Request and response bodies
 

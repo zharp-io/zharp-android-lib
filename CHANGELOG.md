@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `captureOutput` (on by default): every log the app writes is sent, not only `Zharp.log`, each
+  still printed as before and sent once. Timber (a tree planted when the app has it), `System.out`
+  / `System.err` (a `printStackTrace()` is one record), java.util.logging and the new
+  `io.zharp.android.Log` drop-in for `android.util.Log` arrive in the trace they were written in;
+  `captureLogcat` (on by default, Android 7.0+) reads the app's own Logcat for `android.util.Log`,
+  libraries and native code, without the trace. `captureOutputLevel` (default `LogLevel.INFO`)
+  sets the lowest level sent. Levels come from the logger, else from the line (JSON `level`,
+  `E/Tag:`, `ERROR`, `[warn]`), else info for stdout and warn for stderr.
+
 ## io.zharp:android 1.1.0
 
 - `captureBodies` (Java: `setCaptureBodies`): request and response bodies on OkHttp spans, off by

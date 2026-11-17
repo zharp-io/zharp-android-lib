@@ -12,3 +12,5 @@
 -dontwarn okhttp3.**
 -dontwarn androidx.fragment.**
 -keepnames class androidx.fragment.app.FragmentManager$FragmentLifecycleCallbacks
+-dontwarn timber.log.**
+-keepnames class timber.log.Timber$Tree

@@ -63,9 +63,12 @@ dependencies {
     compileOnly("com.squareup.okhttp3:okhttp:4.12.0")
     compileOnly("androidx.fragment:fragment:1.8.9")
     compileOnly("androidx.annotation:annotation:1.9.1")
+    // Timber's logs are captured when the app has Timber (4.x or 5.x).
+    compileOnly("com.jakewharton.timber:timber:5.0.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation("com.jakewharton.timber:timber:5.0.1")
     testImplementation("io.opentelemetry.proto:opentelemetry-proto:1.11.1-alpha")
 }
 

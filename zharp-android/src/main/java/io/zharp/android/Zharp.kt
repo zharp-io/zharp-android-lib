@@ -13,6 +13,7 @@ import io.zharp.android.internal.CrashHandler
 import io.zharp.android.internal.Diagnostics
 import io.zharp.android.internal.Keys
 import io.zharp.android.internal.Lifecycle
+import io.zharp.android.internal.LogCapture
 import io.zharp.android.internal.Runtime
 import io.zharp.android.internal.Settings
 import io.zharp.android.internal.UserContext
@@ -127,6 +128,9 @@ public object Zharp {
             if (!lifecycleRegistered && app is Application) {
                 lifecycleRegistered = true
                 app.registerActivityLifecycleCallbacks(Lifecycle({ runtime }, options.trackScreens && options.tracing))
+            }
+            if (options.captureOutput) {
+                LogCapture.install(options.captureOutputLevel, options.captureLogcat, { runtime })
             }
             if (options.detectAnrs && anrWatchdog == null) {
                 anrWatchdog = AnrWatchdog({ runtime }, options.anrThresholdMillis.coerceAtLeast(1_000)).also { it.start() }
@@ -268,6 +272,7 @@ public object Zharp {
     public fun shutdown() {
         val current = runtime ?: return
         runtime = null
+        guarded(Unit, "Stopping log capture") { LogCapture.uninstall() }
         guarded(Unit, "shutdown") { current.shutdown() }
     }
 

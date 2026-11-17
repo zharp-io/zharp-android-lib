@@ -6,7 +6,8 @@ import io.zharp.android.internal.guarded
 /**
  * Logs sent to Zharp, as `Zharp.log.info("Checkout opened", mapOf("items" to 3))`. Each carries
  * the session, the user, the screen and — when called inside a span — the trace, so a log line
- * leads to what the user was doing. Logcat is not read; only these are sent.
+ * leads to what the user was doing. What the app logs elsewhere (Timber, `android.util.Log`,
+ * `System.out`, java.util.logging) is sent too, unless [ZharpOptions.captureOutput] is off.
  */
 public class ZharpLog internal constructor() {
     @JvmOverloads

@@ -150,6 +150,23 @@ internal class Runtime(
     }
 
     /**
+     * A line `captureOutput` caught: in [context] (the trace it was written in) when known, at
+     * [epochMillis] when it says when it was written.
+     */
+    fun capture(severity: Severity, body: String, attributes: Attributes, error: Throwable?, context: Context?, epochMillis: Long?) {
+        val all = if (error != null) Errors.attributes(error, handled = true) else Attributes.builder()
+        all.putAll(attributes)
+        val record = logger.logRecordBuilder()
+            .setTimestamp(epochMillis?.let { TimeUnit.MILLISECONDS.toNanos(it) } ?: Clock.getDefault().now(), TimeUnit.NANOSECONDS)
+            .setSeverity(severity)
+            .setSeverityText(severityText(severity))
+            .setBody(body)
+            .setAllAttributes(all.build())
+        if (context != null) record.setContext(context)
+        record.emit()
+    }
+
+    /**
      * A caught error, reported once: as an `exception` event on the active span when there is
      * a recorded one (so it shows in its trace), otherwise as an ERROR log record.
      */
