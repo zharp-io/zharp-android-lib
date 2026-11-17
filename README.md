@@ -14,7 +14,7 @@ Full documentation: [zharp.io/docs/sdks/android](https://zharp.io/docs/sdks/andr
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.zharp:android:1.0.0")
+    implementation("io.zharp:android:1.2.0")
 }
 ```
 

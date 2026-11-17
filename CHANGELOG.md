@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## io.zharp:android 1.2.0 — 2026-11-17
 
 - `logs = true` (Java: `setLogs(true)`; off by default): every log the app writes is sent, not
   only `Zharp.log`, each still printed as before and sent once. Off, nothing the app logs or
