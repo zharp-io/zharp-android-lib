@@ -74,8 +74,16 @@ class LogCaptureTest {
         collector.stop()
     }
 
+    /** As init does it, with `logs = true`. */
     private fun install(level: LogLevel = LogLevel.INFO, withLogcat: Boolean = false) {
-        LogCapture.install(level, withLogcat, { Zharp.runtime }, if (withLogcat) logcat else null)
+        Zharp.captureLogs(
+            ZharpOptions().apply {
+                logs = true
+                captureOutputLevel = level
+                captureLogcat = withLogcat
+            },
+            logcat,
+        )
     }
 
     private fun records(): List<LogRecord> {
@@ -237,8 +245,41 @@ class LogCaptureTest {
     }
 
     @Test
-    fun withCaptureOffNothingIsSent() {
-        // Not installed: captureOutput = false.
+    fun byDefaultNothingTheAppLogsIsReadButErrorsAndZharpLogAreSent() {
+        val out = System.out
+        val err = System.err
+        val julHandlers = Logger.getLogger("").handlers.toList()
+        val options = ZharpOptions()
+        assertFalse(options.logs)
+        Zharp.captureLogs(options, logcat)
+
+        // Nothing started: no Logcat reader, streams as they were, no JUL handler, no Timber tree.
+        assertTrue(LogCapture.config == null)
+        assertTrue(System.out === out)
+        assertTrue(System.err === err)
+        assertEquals(julHandlers, Logger.getLogger("").handlers.toList())
+        assertEquals(0, Timber.treeCount)
+
+        println("printed")
+        System.err.println("ERROR printed")
+        Timber.e("timber")
+        Log.e("Tag", "drop-in")
+        Logger.getLogger("com.shop").severe("jul")
+        logcat.entry(System.currentTimeMillis(), 'E', "Native", "only in logcat")
+        Zharp.log.info("explicit")
+        Zharp.captureError(IllegalStateException("caught"))
+        val logs = arrived(2)
+        assertEquals(listOf("caught", "explicit"), logs.map { it.body.stringValue }.sorted())
+        assertEquals(0, logcat.opens)
+        // The app's output is untouched.
+        assertTrue(screenOut.toString("UTF-8").contains("printed"))
+        assertTrue(screenErr.toString("UTF-8").contains("ERROR printed"))
+    }
+
+    @Test
+    fun withCaptureOutputOffNothingIsSent() {
+        Zharp.captureLogs(ZharpOptions().apply { logs = true; captureOutput = false }, logcat)
+        assertTrue(LogCapture.config == null)
         println("printed")
         Timber.i("timber")
         Log.i("Tag", "drop-in")
@@ -336,7 +377,13 @@ class LogCaptureTest {
         override val pid: Int = 4242
         override val processStartMillis: Long = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1)
 
-        override fun open(level: Char): LogcatCapture.Opened = LogcatCapture.Opened(input) { close() }
+        @Volatile
+        var opens = 0
+
+        override fun open(level: Char): LogcatCapture.Opened {
+            opens++
+            return LogcatCapture.Opened(input) { close() }
+        }
 
         @Synchronized
         fun entry(at: Long, priority: Char, tag: String, message: String, pid: Int = this.pid) {

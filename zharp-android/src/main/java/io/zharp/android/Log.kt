@@ -8,7 +8,8 @@ import io.zharp.android.internal.LogCapture
  * A drop-in for `android.util.Log`: change `import android.util.Log` to `import io.zharp.android.Log`
  * and every call still goes to Logcat as before, and is also sent to Zharp in the trace it was
  * written in (Logcat's own copy, read with [ZharpOptions.captureLogcat], carries no trace).
- * Follows [ZharpOptions.captureOutput] and [ZharpOptions.captureOutputLevel].
+ * Sends only with [ZharpOptions.logs] on (off by default: then it only forwards to
+ * `android.util.Log`); follows [ZharpOptions.captureOutput] and [ZharpOptions.captureOutputLevel].
  */
 public object Log {
     public const val VERBOSE: Int = 2

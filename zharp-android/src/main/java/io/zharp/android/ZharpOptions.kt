@@ -27,7 +27,7 @@ public class ZharpOptions {
     /** The release this build is, e.g. `2.3.0`. Defaults to the app's `versionName (versionCode)`. */
     public var release: String? = null
 
-    /** Where to send. Defaults to Zharp's cloud; set it for a self-hosted or local Zharp. */
+    /** @suppress Zharp's own testing only. */
     public var endpoint: String? = null
 
     /**
@@ -53,23 +53,31 @@ public class ZharpOptions {
     public var captureBodies: BodyCapture? = null
 
     /**
-     * Logs the app writes some other way than [Zharp.log] are sent too, each still printed
+     * `true` sends what the app logs: Timber, `System.out`/`System.err`, java.util.logging,
+     * [io.zharp.android.Log] and the app's own Logcat (refined by [captureOutput],
+     * [captureLogcat] and [captureOutputLevel]). Off by default: nothing the app logs or prints
+     * is read. Crashes, errors, traces, sessions, screens and [Zharp.log] are sent either way.
+     */
+    public var logs: Boolean = false
+
+    /**
+     * With [logs]: logs the app writes some other way than [Zharp.log] are sent, each still printed
      * exactly as before: Timber (a tree is planted when the app has Timber), java.util.logging,
      * `System.out`/`System.err` (a `printStackTrace()` as one record), [io.zharp.android.Log] and,
      * with [captureLogcat], everything else in the app's own Logcat. A line two of these see is
-     * sent once. `false` sends only [Zharp.log].
+     * sent once. `false` sends only [Zharp.log] even with [logs] on.
      */
     public var captureOutput: Boolean = true
 
     /**
-     * With [captureOutput]: also read the app's own Logcat (Android 7.0+), the net for
+     * With [logs] and [captureOutput]: also read the app's own Logcat (Android 7.0+), the net for
      * `android.util.Log`, libraries and native code. These lines carry the session, user and
      * screen but not the trace they were written in; for that, log through Timber, [Zharp.log]
      * or [io.zharp.android.Log] (a drop-in for `android.util.Log`).
      */
     public var captureLogcat: Boolean = true
 
-    /** The lowest level [captureOutput] sends. Default [LogLevel.INFO]; [Zharp.log] is always sent. */
+    /** With [logs]: the lowest level captured. Default [LogLevel.INFO]; [Zharp.log] is always sent. */
     public var captureOutputLevel: LogLevel = LogLevel.INFO
 
     /** Share of traces to keep, 0.0–1.0. Errors, crashes, ANRs and logs are always sent. */

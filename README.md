@@ -49,7 +49,7 @@ then `Zharp.log.info(…)`, `Zharp.captureError(e)` and so on.
 **Automatic:** uncaught exceptions (written to disk first, sent at once or on the next launch),
 ANRs (main thread blocked 5 s), a span per Activity / AndroidX Fragment shown, sessions (new after
 30 minutes in the background or on `clearUser`), device and OS on everything, an install-scoped
-random `device.id`, and every log the app writes ([below](#every-log-the-app-writes)).
+random `device.id`. With `logs = true`, also every log the app writes ([below](#every-log-the-app-writes)).
 
 **Sending:** OTLP/protobuf, gzipped, batched every 5 s or 100 records; retried with backoff;
 batches that still fail wait on disk (capped at 200 files / 8 MB / 3 days) and go when the network
@@ -70,9 +70,11 @@ anything else.
 
 ## Every log the app writes
 
-`Zharp.log` is not the only way in: with `captureOutput` (on by default) whatever the app logs is
+Off by default: the SDK reads nothing the app logs or prints (no Timber tree, no stream tee, no
+java.util.logging handler, no Logcat reader). Crashes, errors, traces, sessions, screens and
+`Zharp.log` calls are sent either way. Turn it on with `logs = true` and whatever the app logs is
 sent too, each line still printed exactly as before, and each line sent once however many of
-these see it.
+these see it:
 
 | How the app logs | How it is caught | Trace it was written in |
 |---|---|---|
@@ -85,11 +87,14 @@ these see it.
 ```kotlin
 Zharp.init(this) {
     key = "zpk_…"
+    logs = true                          // Java: options.setLogs(true)
     captureOutputLevel = LogLevel.DEBUG  // default INFO; Zharp.log is always sent
     captureLogcat = false                // keep the exact captures, skip reading Logcat
     // captureOutput = false             // only Zharp.log
 }
 ```
+
+With `logs` off, `io.zharp.android.Log` only forwards to `android.util.Log`.
 
 - **Level:** Timber, `Log` and Logcat give their own (V/D/I/W/E, `wtf`/F as fatal);
   java.util.logging's maps SEVERE → error, WARNING → warn, INFO → info, FINE/CONFIG → debug. A
@@ -201,12 +206,10 @@ and run `npx @zharp/cli proguard upload app/build/outputs/mapping/release/mappin
 - `samples/java-app` (plain Java 8): logs only (`tracing = false`), a button for each kind of log
   and one that crashes.
 
-Put your app key (and optionally a local Zharp) in `local.properties`, never committed, and run
-either from Android Studio:
+Put your app key in `local.properties`, never committed, and run either from Android Studio:
 
 ```
 zharp.appKey=zpk_…
-zharp.endpoint=http://10.0.2.2:3000/api/v1/otlp
 ```
 
 ## Releasing (maintainers)

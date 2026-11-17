@@ -14,6 +14,7 @@ import io.zharp.android.internal.Diagnostics
 import io.zharp.android.internal.Keys
 import io.zharp.android.internal.Lifecycle
 import io.zharp.android.internal.LogCapture
+import io.zharp.android.internal.LogcatCapture
 import io.zharp.android.internal.Runtime
 import io.zharp.android.internal.Settings
 import io.zharp.android.internal.UserContext
@@ -129,9 +130,7 @@ public object Zharp {
                 lifecycleRegistered = true
                 app.registerActivityLifecycleCallbacks(Lifecycle({ runtime }, options.trackScreens && options.tracing))
             }
-            if (options.captureOutput) {
-                LogCapture.install(options.captureOutputLevel, options.captureLogcat, { runtime })
-            }
+            captureLogs(options)
             if (options.detectAnrs && anrWatchdog == null) {
                 anrWatchdog = AnrWatchdog({ runtime }, options.anrThresholdMillis.coerceAtLeast(1_000)).also { it.start() }
             }
@@ -287,6 +286,17 @@ public object Zharp {
             true
         } catch (missing: Throwable) {
             false
+        }
+    }
+
+    /**
+     * What the app logs, only with `logs = true` (off by default): nothing is read otherwise. The
+     * Logcat source is for tests.
+     */
+    internal fun captureLogs(options: ZharpOptions, logcatSource: LogcatCapture.Source? = null) {
+        if (!options.logs || !options.captureOutput) return
+        guarded(Unit, "Starting log capture") {
+            LogCapture.install(options.captureOutputLevel, options.captureLogcat, { runtime }, logcatSource)
         }
     }
 

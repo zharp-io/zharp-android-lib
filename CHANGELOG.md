@@ -2,14 +2,17 @@
 
 ## Unreleased
 
-- `captureOutput` (on by default): every log the app writes is sent, not only `Zharp.log`, each
-  still printed as before and sent once. Timber (a tree planted when the app has it), `System.out`
-  / `System.err` (a `printStackTrace()` is one record), java.util.logging and the new
-  `io.zharp.android.Log` drop-in for `android.util.Log` arrive in the trace they were written in;
-  `captureLogcat` (on by default, Android 7.0+) reads the app's own Logcat for `android.util.Log`,
-  libraries and native code, without the trace. `captureOutputLevel` (default `LogLevel.INFO`)
-  sets the lowest level sent. Levels come from the logger, else from the line (JSON `level`,
-  `E/Tag:`, `ERROR`, `[warn]`), else info for stdout and warn for stderr.
+- `logs = true` (Java: `setLogs(true)`; off by default): every log the app writes is sent, not
+  only `Zharp.log`, each still printed as before and sent once. Off, nothing the app logs or
+  prints is read; crashes, errors, traces, sessions, screens and `Zharp.log` are sent either way.
+- With `logs` on: Timber (a tree planted when the app has it), `System.out` / `System.err` (a
+  `printStackTrace()` is one record), java.util.logging and the new `io.zharp.android.Log`
+  drop-in for `android.util.Log` arrive in the trace they were written in; `captureLogcat`
+  (default true, Android 7.0+) reads the app's own Logcat for `android.util.Log`, libraries and
+  native code, without the trace. `captureOutput` (default true) switches all of these;
+  `captureOutputLevel` (default `LogLevel.INFO`) sets the lowest level sent. Levels come from the
+  logger, else from the line (JSON `level`, `E/Tag:`, `ERROR`, `[warn]`), else info for stdout
+  and warn for stderr.
 
 ## io.zharp:android 1.1.0
 
