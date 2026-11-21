@@ -97,6 +97,14 @@ public class ZharpOptions {
     /** Report uncaught exceptions (crashes). */
     public var captureCrashes: Boolean = true
 
+    /**
+     * Crash types (fully qualified class names) not reported as crashes, because another layer
+     * already reported them — e.g. React Native's `com.facebook.react.common.JavascriptException`,
+     * which @zharp/react-native reports as the JavaScript error it is. Matched on the exception and
+     * its causes.
+     */
+    public var ignoreCrashTypes: List<String> = emptyList()
+
     /** Report ANRs: the main thread blocked for [anrThresholdMillis] or more. */
     public var detectAnrs: Boolean = true
 

@@ -113,6 +113,7 @@ public object Zharp {
                 tracing = options.tracing,
                 proguardUuid = platform.proguardUuid,
                 headers = if (options.captureHeaders) HeaderSettings(options.redactHeaders) else null,
+                ignoredCrashTypes = options.ignoreCrashTypes.toSet(),
                 bodies = options.captureBodies?.let {
                     BodySettings(
                         all = it.mode == BodyCapture.Mode.ALL,

@@ -49,6 +49,8 @@ internal class Settings(
     val bodies: BodySettings? = null,
     /** `captureHeaders` (on by default), or null when it is off. */
     val headers: HeaderSettings? = HeaderSettings(),
+    /** `ignoreCrashTypes`: crashes another layer already reported (React Native's JavascriptException). */
+    val ignoredCrashTypes: Set<String> = emptySet(),
 )
 
 /**
@@ -189,6 +191,12 @@ internal class Runtime(
      */
     fun reportCrash(thread: Thread, error: Throwable) {
         session.save()
+        if (isIgnoredCrash(error)) {
+            // Reported by the layer that threw it (React Native's JS side): what is waiting still goes.
+            sender.drainWithin(CRASH_SEND_MILLIS)
+            flush().join(CRASH_FLUSH_MILLIS, TimeUnit.MILLISECONDS)
+            return
+        }
         crashLogger.logRecordBuilder()
             .setTimestamp(Clock.getDefault().now(), TimeUnit.NANOSECONDS)
             .setSeverity(Severity.FATAL)
@@ -203,6 +211,17 @@ internal class Runtime(
             .emit()
         sender.drainWithin(CRASH_SEND_MILLIS)
         flush().join(CRASH_FLUSH_MILLIS, TimeUnit.MILLISECONDS)
+    }
+
+    private fun isIgnoredCrash(error: Throwable): Boolean {
+        if (settings.ignoredCrashTypes.isEmpty()) return false
+        var current: Throwable? = error
+        var depth = 0
+        while (current != null && depth++ < 10) {
+            if (current.javaClass.name in settings.ignoredCrashTypes) return true
+            current = current.cause
+        }
+        return false
     }
 
     /** The main thread didn't answer for [blockedMillis]: an error with the main thread's stack. */

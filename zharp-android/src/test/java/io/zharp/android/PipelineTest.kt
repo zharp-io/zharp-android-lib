@@ -55,6 +55,7 @@ class PipelineTest {
         sampleRate: Double = 1.0,
         tracing: Boolean = true,
         proguardUuid: String? = null,
+        ignoredCrashTypes: Set<String> = emptySet(),
     ): Runtime {
         val settings = Settings(
             key = "zpk_test",
@@ -67,6 +68,7 @@ class PipelineTest {
             scheduleDelayMillis = 100,
             tracing = tracing,
             proguardUuid = proguardUuid,
+            ignoredCrashTypes = ignoredCrashTypes,
         )
         val device = Attributes.builder()
             .put(Keys.OS_NAME, "Android").put(Keys.OS_VERSION, "15")
@@ -178,6 +180,25 @@ class PipelineTest {
         collector.requests.clear()
         runtime.sender.drain(1_000)
         assertTrue(collector.requests.isEmpty())
+    }
+
+    /** React Native re-throws a fatal JS error natively; the JS side already reported it. */
+    class JavascriptException(message: String) : RuntimeException(message)
+
+    @Test
+    fun crashTypesAnotherLayerReportedAreLeftAlone() {
+        val rn = runtime(collector.endpoint, ignoredCrashTypes = setOf(JavascriptException::class.java.name))
+        Zharp.startForTests(rn)
+        Zharp.captureError(IllegalStateException("queued before the crash"))
+        rn.reportCrash(Thread.currentThread(), RuntimeException("wrapped", JavascriptException("TypeError: x is undefined")))
+        rn.sender.drain(1_000)
+        val records = collector.logRecords().map { attrs(it.attributesList)["exception.type"] }
+        assertTrue("what was waiting still goes", records.contains("java.lang.IllegalStateException"))
+        assertTrue("no crash for it: $records", records.none { it == "java.lang.RuntimeException" })
+        rn.reportCrash(Thread.currentThread(), IllegalArgumentException("a real native crash"))
+        rn.sender.drain(1_000)
+        assertTrue(collector.logRecords().any { attrs(it.attributesList)["exception.type"] == "java.lang.IllegalArgumentException" })
+        rn.shutdown().join(5, TimeUnit.SECONDS)
     }
 
     @Test
