@@ -1,5 +1,12 @@
 # Zharp reaches nothing by reflection; its public API is kept by the app's own use.
 
+# OpenTelemetry (1.67+) reaches the resource's entities by name, by reflection
+# (io.opentelemetry.sdk.resources.internal.EntityUtil). Renamed by R8, every export fails —
+# traces, logs and saved crashes alike: "Error calling getEntities on Resource".
+-keepclassmembers class io.opentelemetry.sdk.resources.Resource { *** getEntities(); }
+-keepclassmembers class * extends io.opentelemetry.sdk.resources.Resource { *** getEntities(); }
+-keepclassmembers class io.opentelemetry.sdk.resources.ResourceBuilder { *** addEntity(...); }
+
 # OpenTelemetry's optional integrations, absent on Android and never called by Zharp.
 -dontwarn com.fasterxml.jackson.**
 -dontwarn com.google.auto.value.**
