@@ -28,6 +28,12 @@ public abstract class ZharpExtension {
     /** Upload each minified build's mapping.txt. `false` still tags builds with a UUID (printed), for uploading later with `zharp proguard upload`. */
     public abstract val uploadMappings: Property<Boolean>
 
+    /**
+     * Upload the app's own Java and Kotlin sources with each release build (default: on), so its
+     * errors show the exact code of that build without a linked repository. `false` to keep them.
+     */
+    public abstract val includeSources: Property<Boolean>
+
     /** Fail the build when the upload fails (the default), so a release never ships with unreadable stacks unnoticed. */
     public abstract val failOnUploadError: Property<Boolean>
 }

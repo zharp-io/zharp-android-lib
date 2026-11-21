@@ -53,6 +53,17 @@ public class ZharpOptions {
     public var captureBodies: BodyCapture? = null
 
     /**
+     * Request and response headers on HTTP spans (`http.request.header.*`,
+     * `http.response.header.*`), so a failed call shows what was sent and what came back. On by
+     * default. Secret headers (`authorization`, cookies, API keys, tokens…) are recorded as
+     * `[Filtered]`; add more names to [redactHeaders]. `false` turns it off.
+     */
+    public var captureHeaders: Boolean = true
+
+    /** More header names to record as `[Filtered]`, e.g. `listOf("x-tenant")`. */
+    public var redactHeaders: List<String> = emptyList()
+
+    /**
      * `true` sends what the app logs: Timber, `System.out`/`System.err`, java.util.logging,
      * [io.zharp.android.Log] and the app's own Logcat (refined by [captureOutput],
      * [captureLogcat] and [captureOutputLevel]). Off by default: nothing the app logs or prints
@@ -85,6 +96,14 @@ public class ZharpOptions {
 
     /** Report uncaught exceptions (crashes). */
     public var captureCrashes: Boolean = true
+
+    /**
+     * Crash types (fully qualified class names) not reported as crashes, because another layer
+     * already reported them — e.g. React Native's `com.facebook.react.common.JavascriptException`,
+     * which @zharp/react-native reports as the JavaScript error it is. Matched on the exception and
+     * its causes.
+     */
+    public var ignoreCrashTypes: List<String> = emptyList()
 
     /** Report ANRs: the main thread blocked for [anrThresholdMillis] or more. */
     public var detectAnrs: Boolean = true

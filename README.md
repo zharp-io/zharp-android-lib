@@ -14,7 +14,7 @@ Full documentation: [zharp.io/docs/sdks/android](https://zharp.io/docs/sdks/andr
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.zharp:android:1.2.0")
+    implementation("io.zharp:android:1.3.0")
 }
 ```
 
@@ -172,7 +172,7 @@ builds with the original classes, methods, files and lines (grouped by them too)
 // app/build.gradle.kts
 plugins {
     id("com.android.application")
-    id("io.zharp.android-gradle") version "1.0.0"
+    id("io.zharp.android-gradle") version "1.1.0"
 }
 
 zharp {

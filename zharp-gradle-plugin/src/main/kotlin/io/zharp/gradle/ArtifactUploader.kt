@@ -82,6 +82,6 @@ internal class ArtifactUploader(
     }
 
     companion object {
-        const val USER_AGENT = "zharp-android-gradle/1.0.0"
+        const val USER_AGENT = "zharp-android-gradle/1.1.0"
     }
 }

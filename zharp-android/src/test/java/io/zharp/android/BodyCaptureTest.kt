@@ -2,6 +2,7 @@ package io.zharp.android
 
 import io.opentelemetry.api.common.Attributes
 import io.zharp.android.internal.BodySettings
+import io.zharp.android.internal.HeaderSettings
 import io.zharp.android.internal.MemoryStore
 import io.zharp.android.internal.Runtime
 import io.zharp.android.internal.Settings
@@ -42,12 +43,12 @@ class BodyCaptureTest {
     /** What the server got, as the app's request left the interceptor. */
     private val received = mutableListOf<String>()
 
-    private fun start(bodies: BodySettings?, tracingOrigins: List<String> = emptyList()) {
+    private fun start(bodies: BodySettings?, tracingOrigins: List<String> = emptyList(), headers: HeaderSettings? = HeaderSettings(listOf("x-tenant"))) {
         collector = FakeCollector()
         val settings = Settings(
             key = "zpk_test", service = "shop-android", environment = "test", release = "1",
             endpoint = collector.endpoint, tracingOrigins = tracingOrigins, sampleRate = 1.0,
-            scheduleDelayMillis = 100, bodies = bodies,
+            scheduleDelayMillis = 100, bodies = bodies, headers = headers,
         )
         runtime = Runtime(
             settings, Attributes.empty(), MemoryStore(), folder.newFolder(), Zharp.user,
@@ -76,12 +77,13 @@ class BodyCaptureTest {
         }
         fun answer(code: Int, type: String?, bytes: ByteArray, vararg headers: Pair<String, String>): Response =
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("X")
-                .apply { headers.forEach { (k, v) -> header(k, v) } }
+                .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
                 .body(bytes.toResponseBody(type?.toMediaType()))
                 .build()
         when (request.url.encodedPath) {
             "/login" -> answer(401, "application/json", """{"error":"bad credentials","token":"leaked","user":{"apiKey":"k-1","email":"a@b.test"}}""".toByteArray())
             "/ok" -> answer(200, "application/json", """{"saved":true}""".toByteArray())
+            "/headers" -> answer(503, "application/json", "{}".toByteArray(), "X-Request-Id" to "req-7", "Set-Cookie" to "sid=secret", "Vary" to "Accept", "Vary" to "Origin")
             "/big" -> answer(500, "text/plain", "x".repeat(200_000).toByteArray())
             "/image" -> answer(500, "image/png", ByteArray(3000))
             "/events" -> answer(500, "text/event-stream", "data: 1\n\n".toByteArray())
@@ -105,6 +107,34 @@ class BodyCaptureTest {
     }
 
     private fun json(text: String) = text.toRequestBody("application/json".toMediaType())
+
+    @Test
+    fun headersByDefaultWithSecretsFiltered() {
+        start(bodies = null, tracingOrigins = listOf("127.0.0.1"))
+        client.newCall(
+            Request.Builder().url("http://127.0.0.1:8080/headers")
+                .header("Authorization", "Bearer user-token").header("X-Client", "android").header("X-Tenant", "acme").build(),
+        ).execute().close()
+
+        val span = spans(1).getValue("/headers")
+        assertEquals("sent, but its value never leaves the device", "[Filtered]", span["http.request.header.authorization"])
+        assertEquals("android", span["http.request.header.x-client"])
+        assertEquals("redactHeaders", "[Filtered]", span["http.request.header.x-tenant"])
+        assertTrue("the trace headers that went out", span["http.request.header.traceparent"]!!.matches(Regex("^00-[0-9a-f]{32}-[0-9a-f]{16}-0[0-3]$")))
+        assertEquals("req-7", span["http.response.header.x-request-id"])
+        assertEquals("[Filtered]", span["http.response.header.set-cookie"])
+        assertEquals("repeats joined", "Accept, Origin", span["http.response.header.vary"])
+        assertNull("no bodies without captureBodies", span["http.response.body"])
+    }
+
+    @Test
+    fun noHeadersWhenTurnedOff() {
+        start(bodies = null, headers = null)
+        client.newCall(Request.Builder().url("http://127.0.0.1:8080/headers").header("X-Client", "android").build()).execute().close()
+        val span = spans(1).getValue("/headers")
+        assertNull(span["http.request.header.x-client"])
+        assertNull(span["http.response.header.x-request-id"])
+    }
 
     @Test
     fun errorsModeKeepsBodiesOfFailedCallsOnlyWithSecretsFiltered() {

@@ -7,6 +7,7 @@ import io.opentelemetry.context.propagation.TextMapSetter
 import io.opentelemetry.sdk.common.Clock
 import io.zharp.android.internal.Bodies
 import io.zharp.android.internal.BodySettings
+import io.zharp.android.internal.Headers
 import io.zharp.android.internal.HttpBodies
 import io.zharp.android.internal.Keys
 import io.zharp.android.internal.Runtime
@@ -50,8 +51,10 @@ public class ZharpOkHttpInterceptor : Interceptor {
         var arrived = 0L
         try {
             val outgoing = guarded(request, "Adding trace headers") { withTraceHeaders(runtime, request, span) }
+            headers(runtime, span, "request", outgoing.headers)
             val response = chain.proceed(outgoing)
             arrived = Clock.getDefault().now()
+            headers(runtime, span, "response", response.headers)
             guarded(Unit, "Recording an HTTP response") {
                 span.setAttribute(Keys.HTTP_STATUS, response.code.toLong())
                 if (response.code >= 400) {
@@ -98,6 +101,14 @@ public class ZharpOkHttpInterceptor : Interceptor {
             .setAttribute(Keys.SERVER_ADDRESS, url.host)
             .setAttribute(Keys.SERVER_PORT, url.port.toLong())
             .startSpan()
+    }
+
+    /** `captureHeaders`: what went out (the trace headers included) and what came back. */
+    private fun headers(runtime: Runtime, span: Span, side: String, headers: okhttp3.Headers) {
+        val settings = runtime.settings.headers ?: return
+        guarded(Unit, "Recording HTTP headers") {
+            setAll(span, Headers.attributes(side, headers.map { (name, value) -> name to value }, settings))
+        }
     }
 
     /** `captureBodies` when it covers this call, else null. */

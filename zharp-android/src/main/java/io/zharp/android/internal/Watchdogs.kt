@@ -16,12 +16,21 @@ internal object CrashHandler {
     @Volatile
     private var reporting = false
 
+    /**
+     * The process is crashing: the main thread now sits in the crash handlers (Android's own shows
+     * its dialog and waits), which is not a freeze — the ANR watchdog stays quiet from here on.
+     */
+    @Volatile
+    var crashing = false
+        private set
+
     @Synchronized
     fun install(runtime: () -> Runtime?) {
         if (installed) return
         installed = true
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            crashing = true
             // A crash inside the report (or a second thread crashing meanwhile) goes straight on.
             if (!reporting) {
                 reporting = true
@@ -68,6 +77,8 @@ internal class AnrWatchdog(
                 sleep(thresholdMillis)
                 if (answered) continue
                 if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) continue
+                // A crash, not a freeze: reported as the crash it is.
+                if (CrashHandler.crashing) return
                 val frames = Looper.getMainLooper().thread.stackTrace
                 guarded(Unit, "Reporting an ANR") { runtime()?.reportAnr(frames, thresholdMillis) }
                 // Once per freeze: wait for the main thread to come back before watching again.
