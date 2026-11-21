@@ -47,6 +47,8 @@ internal class Settings(
     val proguardUuid: String? = null,
     /** `captureBodies`, or null when it is off. */
     val bodies: BodySettings? = null,
+    /** `captureHeaders` (on by default), or null when it is off. */
+    val headers: HeaderSettings? = HeaderSettings(),
 )
 
 /**

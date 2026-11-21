@@ -9,6 +9,7 @@ import io.opentelemetry.api.trace.StatusCode
 import io.zharp.android.internal.AndroidPlatform
 import io.zharp.android.internal.AnrWatchdog
 import io.zharp.android.internal.BodySettings
+import io.zharp.android.internal.HeaderSettings
 import io.zharp.android.internal.CrashHandler
 import io.zharp.android.internal.Diagnostics
 import io.zharp.android.internal.Keys
@@ -111,6 +112,7 @@ public object Zharp {
                 sampleRate = options.sampleRate,
                 tracing = options.tracing,
                 proguardUuid = platform.proguardUuid,
+                headers = if (options.captureHeaders) HeaderSettings(options.redactHeaders) else null,
                 bodies = options.captureBodies?.let {
                     BodySettings(
                         all = it.mode == BodyCapture.Mode.ALL,
