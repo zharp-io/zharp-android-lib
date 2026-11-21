@@ -15,6 +15,8 @@ val local = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
+// A -P property wins (CI, scripted test runs), then local.properties.
+fun setting(name: String): String? = (findProperty(name) as String?) ?: local.getProperty(name)
 
 android {
     namespace = "io.zharp.sample.monitoring"
@@ -26,8 +28,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
-        buildConfigField("String", "ZHARP_KEY", "\"${local.getProperty("zharp.appKey", "")}\"")
-        buildConfigField("String", "ZHARP_ENDPOINT", "\"${local.getProperty("zharp.endpoint", "")}\"")
+        buildConfigField("String", "ZHARP_KEY", "\"${setting("zharp.appKey") ?: ""}\"")
+        buildConfigField("String", "ZHARP_ENDPOINT", "\"${setting("zharp.endpoint") ?: ""}\"")
     }
 
     buildFeatures {
@@ -61,7 +63,7 @@ kotlin {
 // artifacts:write scope) is set, e.g. ZHARP_URL=http://localhost:3000 for a local Zharp; without a
 // token the upload is a dry run that prints what it would send.
 zharp {
-    local.getProperty("zharp.appId")?.let { appId = it }
+    setting("zharp.appId")?.let { appId = it }
 }
 
 dependencies {

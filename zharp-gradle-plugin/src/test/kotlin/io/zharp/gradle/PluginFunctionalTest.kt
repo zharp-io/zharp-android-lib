@@ -82,6 +82,10 @@ class PluginFunctionalTest {
         assertTrue(result.output, result.output.contains("debugId=$uuid"))
         assertTrue(result.output, result.output.contains("release=\"2.0.0 (7)\""))
         assertTrue(result.output, result.output.contains("$mapping"))
+        assertEquals(TaskOutcome.SUCCESS, result.task(":uploadZharpReleaseSources")?.outcome)
+        assertTrue(result.output, result.output.contains("would upload 2 source file(s) as kind=source-bundle debugId=$uuid"))
+        // Sources go with release builds only.
+        assertNull(result.task(":uploadZharpDebugSources"))
         assertTrue("nothing sent without a token", bodies.isEmpty())
     }
 
@@ -91,7 +95,7 @@ class PluginFunctionalTest {
         assertEquals(TaskOutcome.SUCCESS, result.task(":uploadZharpReleaseMapping")?.outcome)
         val uuid = uuidIn(apk("release"))!!
 
-        val body = bodies.single()
+        val body = bodies.single { it.contains("name=\"kind\"\r\n\r\nproguard\r\n") }
         assertTrue(body, body.startsWith("/api/v1/applications/42/artifacts\nBearer zh_test_token\n"))
         assertTrue(body, body.contains("name=\"kind\"\r\n\r\nproguard\r\n"))
         assertTrue(body, body.contains("name=\"debugId\"\r\n\r\n$uuid\r\n"))
@@ -99,11 +103,35 @@ class PluginFunctionalTest {
         assertTrue(body, body.contains(File(project, "build/outputs/mapping/release/mapping.txt").readText()))
         assertTrue(result.output.contains("Zharp: uploaded mapping.txt for ProGuard UUID $uuid"))
 
+        // The app's sources, under the same UUID: what the error page shows the code from.
+        val sources = bodies.single { it.contains("name=\"kind\"\r\n\r\nsource-bundle\r\n") }
+        assertTrue(sources, sources.contains("name=\"debugId\"\r\n\r\n$uuid\r\n"))
+        assertTrue(result.output, result.output.contains("Zharp: uploaded the app's sources (2 files"))
+
         // The next build is a new build: a new UUID, uploaded again.
         runner("assembleRelease", token = "zh_test_token").build()
         val next = uuidIn(apk("release"))!!
         assertTrue(next != uuid)
-        assertTrue(bodies.last().contains("name=\"debugId\"\r\n\r\n$next\r\n"))
+        assertTrue(bodies.any { it.contains("proguard") && it.contains("name=\"debugId\"\r\n\r\n$next\r\n") })
+    }
+
+    @Test
+    fun keepsTheSourcesWhenAskedTo() {
+        File(project, "build.gradle.kts").appendText("\nzharp { includeSources = false }\n")
+        val result = runner("assembleRelease", token = "zh_test_token").build()
+        assertNull(result.task(":uploadZharpReleaseSources"))
+        assertTrue(bodies.none { it.contains("source-bundle") })
+    }
+
+    @Test
+    fun aReleaseBuildWithoutR8StillGetsItsSources() {
+        val build = File(project, "build.gradle.kts")
+        build.writeText(build.readText().replace("isMinifyEnabled = true", "isMinifyEnabled = false"))
+        val result = runner("assembleRelease", token = "zh_test_token").build()
+        assertNull("no mapping without R8", result.task(":uploadZharpReleaseMapping"))
+        val uuid = uuidIn(apk("release"))
+        assertNotNull("the build is still tagged, so its errors find their sources", uuid)
+        assertTrue(bodies.single().contains("name=\"debugId\"\r\n\r\n$uuid\r\n"))
     }
 
     private fun apk(variant: String): File =

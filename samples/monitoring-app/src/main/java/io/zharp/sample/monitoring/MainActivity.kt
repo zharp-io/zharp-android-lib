@@ -39,7 +39,7 @@ class MainActivity : Activity() {
             })
             addView(button("Open another screen") { startActivity(Intent(this@MainActivity, DetailActivity::class.java)) })
             addView(button("Freeze 6 s (ANR)") { Thread.sleep(6_000) })
-            addView(button("Crash") { throw IllegalStateException("Sample crash") })
+            addView(button("Crash") { Cart(listOf(Cart.Line(500, 2), Cart.Line(300, null))).total() })
             addView(button("Sign out (new session)") { Zharp.clearUser() })
         }
         setContentView(layout)

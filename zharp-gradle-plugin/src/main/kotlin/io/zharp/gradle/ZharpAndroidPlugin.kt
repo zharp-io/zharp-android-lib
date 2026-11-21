@@ -6,14 +6,18 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 /**
- * `io.zharp.android-gradle`: for every minified (R8/ProGuard) variant of an app,
+ * `io.zharp.android-gradle`: for every minified (R8/ProGuard) variant of an app, and every
+ * release variant,
  *
  * 1. `generateZharp<Variant>ProguardUuid` makes a new UUID for the build and writes it into the
  *    app as the asset `zharp-debug-meta.properties`, which the Zharp SDK puts on every error as
  *    `zharp.proguard_uuid`;
  * 2. `uploadZharp<Variant>Mapping` runs after `minify<Variant>WithR8` and uploads that build's
  *    `mapping.txt` to Zharp under the same UUID, so Zharp turns the obfuscated frames back into the
- *    original classes, methods and lines.
+ *    original classes, methods and lines;
+ * 3. `uploadZharp<Variant>Sources` runs after `assemble<Variant>` / `bundle<Variant>` and uploads
+ *    the app's own Java and Kotlin sources under that UUID, so errors show the build's exact code
+ *    (`includeSources = false` to keep them).
  */
 public class ZharpAndroidPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -25,6 +29,9 @@ public class ZharpAndroidPlugin : Plugin<Project> {
             providers.environmentVariable("ZHARP_URL").orElse(providers.gradleProperty("zharp.url")).orElse(DEFAULT_URL),
         )
         extension.uploadMappings.convention(true)
+        extension.includeSources.convention(
+            providers.environmentVariable("ZHARP_INCLUDE_SOURCES").orElse(providers.gradleProperty("zharp.includeSources")).map { it.trim() != "false" }.orElse(true),
+        )
         extension.failOnUploadError.convention(true)
 
         var applied = false
@@ -42,13 +49,40 @@ public class ZharpAndroidPlugin : Plugin<Project> {
     private fun configure(project: Project, extension: ZharpExtension) {
         val components = project.extensions.getByType(ApplicationAndroidComponentsExtension::class.java)
         components.onVariants(components.selector().all()) { variant ->
-            if (!variant.isMinifyEnabled) return@onVariants
+            val minified = variant.isMinifyEnabled
+            // Sources go with release builds — what users run — not with every debug build.
+            val sources = extension.includeSources.getOrElse(true) && variant.buildType == "release"
+            if (!minified && !sources) return@onVariants
             val name = variant.name.replaceFirstChar { it.uppercase() }
 
             val generate = project.tasks.register("generateZharp${name}ProguardUuid", GenerateProguardUuidTask::class.java)
             variant.sources.assets?.addGeneratedSourceDirectory(generate, GenerateProguardUuidTask::outputDirectory)
 
             val output = variant.outputs.firstOrNull()
+            // The SDK's default release name: "versionName (versionCode)".
+            val releaseName = output?.let { o -> o.versionName.zip(o.versionCode) { versionName, versionCode -> "$versionName ($versionCode)" }.orElse(o.versionName) }
+
+            if (sources) {
+                val uploadSources = project.tasks.register("uploadZharp${name}Sources", UploadSourcesTask::class.java) {
+                    val task = this
+                    task.group = "zharp"
+                    task.description = "Uploads the ${variant.name} build's Java and Kotlin sources to Zharp."
+                    variant.sources.java?.let { task.sourceDirs.from(it.all) }
+                    variant.sources.kotlin?.let { task.sourceDirs.from(it.all) }
+                    task.uuidFile.set(generate.flatMap { it.outputDirectory.file(GenerateProguardUuidTask.ASSET) })
+                    task.rootDir.set(project.rootDir)
+                    task.appId.set(extension.appId)
+                    task.authToken.set(extension.authToken)
+                    task.url.set(extension.url)
+                    task.failOnError.set(extension.failOnUploadError)
+                    if (releaseName != null) task.release.set(releaseName)
+                }
+                val built = setOf("assemble$name", "bundle$name")
+                project.tasks.configureEach {
+                    if (this.name in built) finalizedBy(uploadSources)
+                }
+            }
+            if (!minified) return@onVariants
             val upload = project.tasks.register("uploadZharp${name}Mapping", UploadMappingTask::class.java) {
                 val task = this
                 task.group = "zharp"
@@ -60,13 +94,7 @@ public class ZharpAndroidPlugin : Plugin<Project> {
                 task.url.set(extension.url)
                 task.enabledUpload.set(extension.uploadMappings)
                 task.failOnError.set(extension.failOnUploadError)
-                if (output != null) {
-                    // The SDK's default release name: "versionName (versionCode)".
-                    task.release.set(
-                        output.versionName.zip(output.versionCode) { versionName, versionCode -> "$versionName ($versionCode)" }
-                            .orElse(output.versionName),
-                    )
-                }
+                if (releaseName != null) task.release.set(releaseName)
             }
 
             val minify = "minify${name}WithR8"
