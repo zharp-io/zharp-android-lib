@@ -1,5 +1,13 @@
 # Changelog
 
+## io.zharp:android 1.3.0, Gradle plugin io.zharp.android-gradle 1.1.0 — 2026-11-21
+
+- **Fix:** minified (R8) release builds send again; 1.2.0 sent nothing from them. Update straight away.
+- **Fix:** a crash is no longer also reported as an ANR.
+- Request and response headers on OkHttp spans (`captureHeaders`, `redactHeaders`); secrets are sent as `[Filtered]`.
+- `ignoreCrashTypes`: skip crashes another layer already reported (React Native uses it).
+- Gradle plugin 1.1.0: release builds upload the app's sources with the mapping (`includeSources`, on by default), so crashes show the code of that build.
+
 ## io.zharp:android 1.2.0 — 2026-11-17
 
 - `logs = true` (Java: `setLogs(true)`; off by default): every log the app writes is sent, not
