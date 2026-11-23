@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.zharp"
-version = "1.1.0"
+version = "1.2.0"
 
 val agp = "8.11.1"
 
@@ -42,7 +42,7 @@ gradlePlugin {
             id = "io.zharp.android-gradle"
             implementationClass = "io.zharp.gradle.ZharpAndroidPlugin"
             displayName = "Zharp for Android"
-            description = "Readable stack traces in Zharp for R8/ProGuard-minified Android apps: tags each build with a UUID and uploads its mapping.txt."
+            description = "Readable stack traces in Zharp for Android apps: uploads each R8/ProGuard build's mapping.txt under a UUID it writes into the app, and release builds' native library symbols."
         }
     }
 }
@@ -75,7 +75,7 @@ mavenPublishing {
 
     pom {
         name.set("Zharp for Android Gradle plugin")
-        description.set("Readable stack traces in Zharp for R8/ProGuard-minified Android apps: tags each build with a UUID and uploads its mapping.txt.")
+        description.set("Readable stack traces in Zharp for Android apps: uploads each R8/ProGuard build's mapping.txt under a UUID it writes into the app, and release builds' native library symbols.")
         inceptionYear.set("2026")
         url.set("https://github.com/zharp-io/zharp-android-lib")
         licenses {

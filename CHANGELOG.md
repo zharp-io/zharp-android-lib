@@ -1,5 +1,17 @@
 # Changelog
 
+## io.zharp:android 1.4.0, Gradle plugin io.zharp.android-gradle 1.2.0 — unreleased
+
+- **Native (NDK) crashes**, reported on the next launch from Android's own exit record: on
+  Android 12+ with the tombstone's crashed thread, abort message, other threads and modules; on
+  Android 11 with the signal only. Each is sent once, dated when it happened, with the session
+  and screen it happened on. No signal handler or native code in the SDK.
+  `captureNativeCrashes = false` turns it off.
+- Gradle plugin 1.2.0: release builds upload their native libraries' symbols
+  (`uploadZharp<Variant>NativeSymbols`: Breakpad `.sym` files made with Mozilla's dump_syms,
+  downloaded once and checksum-verified, or `dumpSyms` / `ZHARP_DUMP_SYMS`), and the C/C++ sources
+  they name with `includeSources`. `uploadNativeSymbols = false` to skip.
+
 ## io.zharp:android 1.3.0, Gradle plugin io.zharp.android-gradle 1.1.0 — 2026-11-21
 
 - **Fix:** minified (R8) release builds send again; 1.2.0 sent nothing from them. Update straight away.

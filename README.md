@@ -14,7 +14,7 @@ Full documentation: [zharp.io/docs/sdks/android](https://zharp.io/docs/sdks/andr
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.zharp:android:1.3.0")
+    implementation("io.zharp:android:1.4.0")
 }
 ```
 
@@ -172,7 +172,7 @@ builds with the original classes, methods, files and lines (grouped by them too)
 // app/build.gradle.kts
 plugins {
     id("com.android.application")
-    id("io.zharp.android-gradle") version "1.1.0"
+    id("io.zharp.android-gradle") version "1.2.0"
 }
 
 zharp {
@@ -195,16 +195,49 @@ work as before.
 | `authToken` | `ZHARP_AUTH_TOKEN`, `-Pzharp.authToken` | none: dry run |
 | `url` | `ZHARP_URL`, `-Pzharp.url` | `https://api.zharp.io` |
 | `uploadMappings` | | `true` (`false` still writes the UUID and prints it) |
+| `includeSources` | `ZHARP_INCLUDE_SOURCES`, `-Pzharp.includeSources` | `true`: release builds upload the app's sources |
+| `uploadNativeSymbols` | `ZHARP_UPLOAD_NATIVE_SYMBOLS`, `-Pzharp.uploadNativeSymbols` | `true`: release builds upload native library symbols |
+| `dumpSyms` | `ZHARP_DUMP_SYMS`, `-Pzharp.dumpSyms` | `dump_syms` on PATH, else downloaded once |
 | `failOnUploadError` | | `true` |
 
 Uploading yourself instead (with `uploadMappings = false`): take the UUID from the build output
 and run `npx @zharp/cli proguard upload app/build/outputs/mapping/release/mapping.txt --app 123 --uuid <uuid>`.
+
+## Native (NDK) crashes
+
+Crashes in C and C++ code (the app's `.so` libraries, and the libraries and engines it uses) are
+reported on the next launch, from Android's own record of how the process ended
+(`ApplicationExitInfo`, `REASON_CRASH_NATIVE`). There is no signal handler and no native code in
+the SDK.
+
+- **Android 12+:** the tombstone Android keeps with the record (protobuf): the signal, the abort
+  message, the crashed thread frame by frame, the other threads and the modules. Frames are sent
+  in Zharp's native style (`#0  Cart::total() const [libshop.so +0x83f]`) with each app
+  library's GNU build ID (`zharp.native_build_ids`).
+- **Android 11:** the signal only; Android keeps no stack.
+- **Android 10 and older:** not reported.
+
+Each crash is reported once (the newest exit seen is remembered; on the first run, earlier exits
+are left alone), dated when it happened, with the session and screen it happened on: the SDK keeps
+those with Android's record (`setProcessStateSummary`). `captureNativeCrashes = false` turns it off.
+
+**Readable frames.** Release libraries are stripped, so the Gradle plugin uploads their symbols:
+`uploadZharp<Variant>NativeSymbols` runs after `merge<Variant>NativeLibs` in release builds, on the
+libraries before Android strips them, and converts each to a Breakpad `.sym` with Mozilla's
+[dump_syms](https://github.com/mozilla/dump_syms) (MIT / Apache-2.0): `dumpSyms` / `ZHARP_DUMP_SYMS`,
+else `dump_syms` on PATH, else its v2.3.9 release, downloaded once into
+`~/.gradle/caches/zharp/` and checked against a pinned SHA-256. Each `.sym` is uploaded as
+`breakpad-sym` under the debug ID its build ID maps to; with `includeSources`, the project's C and
+C++ files it names go along as a source bundle. Zharp names the frames on the server.
 
 ## Samples
 
 - `samples/monitoring-app` (Kotlin): everything on — screens, OkHttp traces, errors, logs.
 - `samples/java-app` (plain Java 8): logs only (`tracing = false`), a button for each kind of log
   and one that crashes.
+- `samples/ndk-app` (Kotlin + C++): two buttons that crash in C++ (a null read, an abort with a
+  message). `.github/workflows/ndk-e2e.yml` builds it in Release, uploads its symbols to a
+  stand-in Zharp, and crashes it on Android 11, 12 and 15 emulators.
 
 Put your app key in `local.properties`, never committed, and run either from Android Studio:
 
