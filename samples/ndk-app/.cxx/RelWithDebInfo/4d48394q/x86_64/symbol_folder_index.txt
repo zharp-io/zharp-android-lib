@@ -1,0 +1,1 @@
+C:\Users\tomke\Documents\Projects\zharp\zharp-android-ndk\samples\ndk-app\build\intermediates\cxx\RelWithDebInfo\4d48394q\obj\x86_64
