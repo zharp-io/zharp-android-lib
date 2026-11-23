@@ -44,6 +44,7 @@ internal class Lifecycle(
             val start = appearing.remove(activity) ?: return@guarded
             val name = activity.javaClass.simpleName
             runtime()?.user?.screen = name
+            runtime()?.rememberProcessState()
             if (!trackScreens) return@guarded
             val decor = activity.window?.peekDecorView()
             whenDrawn(decor) { runtime()?.screenView(name, "activity", start, now()) }
