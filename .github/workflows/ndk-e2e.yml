@@ -58,15 +58,13 @@ jobs:
           grep -q '"arch": "x86_64"' "$sym.json" || { echo "::error::no arch on the upload"; exit 1; }
           ls "$RUNNER_TEMP"/build/artifacts/source-bundle-*-sources.json | grep -v -- '-sources.json.json' | head -3
           grep -l "cart.cpp" "$RUNNER_TEMP"/build/artifacts/source-bundle-* || { echo "::error::no C++ sources bundled"; exit 1; }
-          mkdir -p dist && cp samples/ndk-app/build/outputs/apk/release/ndk-app-release.apk dist/
-          cp samples/ndk-app/build/intermediates/merged_native_libs/release/*/out/lib/x86_64/libshop.so dist/libshop.so
+          dist="$RUNNER_TEMP/build/dist"; mkdir -p "$dist" && cp samples/ndk-app/build/outputs/apk/release/ndk-app-release.apk "$dist/"
+          cp samples/ndk-app/build/intermediates/merged_native_libs/release/*/out/lib/x86_64/libshop.so "$dist/libshop.so"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ndk-build
-          path: |
-            dist
-            ${{ runner.temp }}/build
+          path: ${{ runner.temp }}/build
 
   emulator:
     needs: build
