@@ -98,6 +98,15 @@ public class ZharpOptions {
     public var captureCrashes: Boolean = true
 
     /**
+     * Report native (NDK) crashes: C and C++ code in the app's `.so` libraries, and in the
+     * libraries and engines it uses. Read on the next launch from Android's own record of the
+     * crash (Android 12+ with its stack, Android 11 without; earlier versions keep none). No
+     * native code or signal handler of Zharp's. Readable frames need the Gradle plugin, which
+     * uploads each release build's native symbols. `false` if another layer reports them already.
+     */
+    public var captureNativeCrashes: Boolean = true
+
+    /**
      * Crash types (fully qualified class names) not reported as crashes, because another layer
      * already reported them — e.g. React Native's `com.facebook.react.common.JavascriptException`,
      * which @zharp/react-native reports as the JavaScript error it is. Matched on the exception and

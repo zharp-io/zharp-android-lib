@@ -64,6 +64,11 @@ internal class Runtime(
     outboxDir: File,
     val user: UserContext,
     transport: Transport = Transport(settings.endpoint ?: Transport.DEFAULT_ENDPOINT, settings.key, USER_AGENT),
+    /**
+     * Hands the session and screen to Android, which gives them back with the process's exit
+     * record (Android 11+): a native crash, reported on the next launch, says where it happened.
+     */
+    private val processState: ((ByteArray) -> Unit)? = null,
 ) {
     val session = SessionManager(store)
     val origins = TracingOrigins(settings.tracingOrigins)
@@ -138,6 +143,47 @@ internal class Runtime(
 
     /** Send what earlier runs left in the outbox (a crash, an offline spell). */
     fun start() {
+        rememberProcessState()
+        sender.drainLater()
+    }
+
+    @Volatile
+    private var lastProcessState: String? = null
+
+    /** The session and screen now, for a native crash's report (handed to Android only when they change). */
+    fun rememberProcessState() {
+        val write = processState ?: return
+        guarded(Unit, "Saving the process state") {
+            val state = ProcessState(session.current(), user.screen).encode()
+            if (state == lastProcessState) return@guarded
+            lastProcessState = state
+            write(state.toByteArray(Charsets.UTF_8))
+        }
+    }
+
+    /**
+     * A native crash of an earlier run, read from Android's exit record on this launch: a FATAL
+     * log record dated when it happened, in the session (and on the screen) it happened in,
+     * written to disk at once like a crash, then sent.
+     */
+    fun reportNativeCrash(crash: NativeCrash, epochMillis: Long, state: ProcessState?) {
+        val attributes = Attributes.builder()
+            .put(Keys.EXCEPTION_TYPE, crash.type)
+            .put(Keys.EXCEPTION_MESSAGE, crash.message)
+            .put(Keys.EXCEPTION_STACKTRACE, crash.stacktrace)
+            .put(Keys.HANDLED, "false")
+            .put(Keys.ERROR_KIND, "crash")
+        crash.threadName?.let { attributes.put(Keys.THREAD_NAME, it) }
+        for ((key, value) in crash.attributes) attributes.put(key, value)
+        state?.session?.let { attributes.put(Keys.SESSION_ID, it) }
+        state?.screen?.let { attributes.put(Keys.SCREEN_NAME, it) }
+        crashLogger.logRecordBuilder()
+            .setTimestamp(TimeUnit.MILLISECONDS.toNanos(epochMillis), TimeUnit.NANOSECONDS)
+            .setSeverity(Severity.FATAL)
+            .setSeverityText("FATAL")
+            .setBody(crash.stacktrace.substringBefore('\n'))
+            .setAllAttributes(attributes.build())
+            .emit()
         sender.drainLater()
     }
 
@@ -249,6 +295,7 @@ internal class Runtime(
     /** A root span for one screen shown: from when it was created or brought back to its first frame. */
     fun screenView(name: String, type: String, startNanos: Long, endNanos: Long) {
         user.screen = name
+        rememberProcessState()
         if (!settings.tracing) return
         tracer.spanBuilder("screen $name")
             .setNoParent()
