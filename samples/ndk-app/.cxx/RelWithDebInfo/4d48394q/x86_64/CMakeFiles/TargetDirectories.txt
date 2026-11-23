@@ -1,3 +1,0 @@
-C:/Users/tomke/Documents/Projects/zharp/zharp-android-ndk/samples/ndk-app/.cxx/RelWithDebInfo/4d48394q/x86_64/CMakeFiles/shop.dir
-C:/Users/tomke/Documents/Projects/zharp/zharp-android-ndk/samples/ndk-app/.cxx/RelWithDebInfo/4d48394q/x86_64/CMakeFiles/edit_cache.dir
-C:/Users/tomke/Documents/Projects/zharp/zharp-android-ndk/samples/ndk-app/.cxx/RelWithDebInfo/4d48394q/x86_64/CMakeFiles/rebuild_cache.dir

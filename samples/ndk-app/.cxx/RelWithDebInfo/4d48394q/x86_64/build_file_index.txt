@@ -1,1 +1,0 @@
-C:\Users\tomke\Documents\Projects\zharp\zharp-android-ndk\samples\ndk-app\src\main\cpp\CMakeLists.txt
