@@ -122,6 +122,51 @@ class NativeCrashTest {
         assertEquals("The process aborted (abort() or an uncaught C++ exception)", plain.message)
     }
 
+    /**
+     * Real tombstones, pulled from the emulators of .github/workflows/ndk-e2e.yml after
+     * samples/ndk-app crashed (x86_64): a null read in Cart::total() on Android 15, and a failed
+     * check that aborts with a message on Android 12.
+     */
+    private fun realTombstone(name: String): Tombstone =
+        Tombstone.parse(java.util.zip.GZIPInputStream(javaClass.getResourceAsStream("/tombstones/$name")!!).use { it.readBytes() })
+
+    @Test
+    fun readsARealAndroid15Tombstone() {
+        val tombstone = realTombstone("api35-segv.pb.gz")
+        assertEquals("x86_64", tombstone.archName)
+        assertTrue(tombstone.buildFingerprint.startsWith("google/sdk_gphone64_x86_64/"))
+        assertEquals(tombstone.pid, tombstone.tid)
+        val crash = NativeCrash.fromTombstone(tombstone)
+        assertEquals("SIGSEGV", crash.type)
+        assertEquals("SEGV_MAPERR at 0x0 (null pointer dereference)", crash.message)
+        assertEquals(
+            listOf(
+                "SIGSEGV: SEGV_MAPERR at 0x0 (null pointer dereference)",
+                "#0  Cart::total() const [libshop.so +0x83f]",
+                "#1  Java_io_zharp_sample_ndk_NativeShop_checkout [libshop.so +0x804]",
+                "#2  art_jni_trampoline [boot.oat +0xa1e3c]",
+                "#3  nterp_helper [libart.so +0x208a15]",
+                "#4  D.o.run [base.vdex +0xd206]",
+            ),
+            crash.stacktrace.lines().take(6),
+        )
+        // The app's library only; the system's, its Java and boot images have no symbols to upload.
+        assertEquals("ccf1866b824f9b203ab9eea675067a66d5ba1e0a libshop.so", crash.attributes["zharp.native_build_ids"])
+        assertTrue(crash.attributes.getValue("native.threads").length < 16 * 1024)
+        assertTrue(crash.attributes.getValue("native.modules").contains("/apex/com.android.art/lib64/libart.so  62338b1c62e3991543c9b8b8bae2b361"))
+    }
+
+    @Test
+    fun readsARealAndroid12AbortWithItsMessage() {
+        val crash = NativeCrash.fromTombstone(realTombstone("api31-abort.pb.gz"))
+        assertEquals("SIGABRT", crash.type)
+        assertEquals("Cart total 250, expected 999", crash.message)
+        val lines = crash.stacktrace.lines()
+        assertEquals("SIGABRT: Cart total 250, expected 999", lines[0])
+        assertTrue(lines.toString(), lines.any { it.endsWith(" Cart::checkTotal(int) const [libshop.so +0x88d]") })
+        assertTrue(lines.toString(), lines.any { it.endsWith(" Java_io_zharp_sample_ndk_NativeShop_checkout [libshop.so +0x7f1]") })
+    }
+
     @Test
     fun aNullPointerWithoutACauseIsSaidSo() {
         val crash = NativeCrash.fromTombstone(Tombstone.parse(tombstone(cause = null)))

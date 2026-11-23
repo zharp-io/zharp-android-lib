@@ -63,7 +63,7 @@ run "" 15
 logs > /dev/null
 [ "$(count SIGABRT)" = 1 ] || fail "expected one SIGABRT report, got $(count SIGABRT)"
 if [ "$API" -ge 31 ]; then
-  check SIGABRT "'Cart total 250, expected 999' in a['exception.message']"
+  check SIGABRT "a['exception.message'] == 'Cart total 250, expected 999'"
 fi
 
 run "" 10        # nothing new: nothing sent again

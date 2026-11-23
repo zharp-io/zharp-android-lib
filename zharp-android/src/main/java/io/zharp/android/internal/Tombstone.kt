@@ -83,7 +83,8 @@ internal class Tombstone(
                     5 -> pid = reader.int(tag)
                     6 -> tid = reader.int(tag)
                     10 -> signal = parseSignal(reader.message(tag))
-                    14 -> abort = reader.string(tag)
+                    // Android 12 pads it with NULs to the size of its buffer.
+                    14 -> abort = reader.string(tag).substringBefore('\u0000')
                     15 -> parseCause(reader.message(tag))?.let { causes += it }
                     16 -> parseThreadEntry(reader.message(tag))?.let { threads[it.id] = it }
                     else -> reader.skip(tag)
