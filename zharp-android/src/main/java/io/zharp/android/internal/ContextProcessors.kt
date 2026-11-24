@@ -18,7 +18,8 @@ internal class ContextStamp(private val session: SessionManager, private val con
             val attribute = AttributeKey.stringKey(key)
             if (!has(attribute)) set(attribute, value)
         }
-        set(Keys.SESSION_ID, session.current())
+        // A native crash, reported on the next launch, already says which session it happened in.
+        if (!has(Keys.SESSION_ID)) set(Keys.SESSION_ID, session.current())
         context.user?.let { user ->
             user.id?.let { set(Keys.USER_ID, it) }
             user.email?.let { set(Keys.USER_EMAIL, it) }

@@ -16,6 +16,7 @@ import io.zharp.android.internal.Keys
 import io.zharp.android.internal.Lifecycle
 import io.zharp.android.internal.LogCapture
 import io.zharp.android.internal.LogcatCapture
+import io.zharp.android.internal.NativeCrashes
 import io.zharp.android.internal.Runtime
 import io.zharp.android.internal.Settings
 import io.zharp.android.internal.UserContext
@@ -124,11 +125,15 @@ public object Zharp {
                 },
             )
             settings.proguardUuid?.let { Diagnostics.debug("ProGuard UUID $it: errors are deobfuscated with the mapping uploaded for it") }
-            val next = Runtime(settings, platform.deviceAttributes(), platform.store, platform.outboxDir, user)
+            val next = Runtime(
+                settings, platform.deviceAttributes(), platform.store, platform.outboxDir, user,
+                processState = if (options.captureNativeCrashes) NativeCrashes.processStateWriter(app) else null,
+            )
             runtime = next
             next.start()
 
             if (options.captureCrashes) CrashHandler.install { runtime }
+            if (options.captureNativeCrashes) NativeCrashes.start(app, platform.store) { runtime }
             if (!lifecycleRegistered && app is Application) {
                 lifecycleRegistered = true
                 app.registerActivityLifecycleCallbacks(Lifecycle({ runtime }, options.trackScreens && options.tracing))
@@ -170,7 +175,10 @@ public object Zharp {
     @JvmStatic
     public fun clearUser() {
         user.user = null
-        guarded(Unit, "Starting a new session") { runtime?.session?.rotate() }
+        guarded(Unit, "Starting a new session") {
+            runtime?.session?.rotate()
+            runtime?.rememberProcessState()
+        }
     }
 
     /** An attribute on every span and log from now on, e.g. `setTag("plan", "pro")`. `null` removes it. */

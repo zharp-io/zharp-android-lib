@@ -21,3 +21,4 @@ rootProject.name = "zharp-android"
 include(":zharp-android")
 include(":samples:java-app")
 include(":samples:monitoring-app")
+include(":samples:ndk-app")

@@ -1,0 +1,109 @@
+name: Native crashes end to end
+
+# The NDK sample (samples/ndk-app) in Release, its native symbols uploaded by the Gradle plugin
+# (dump_syms downloaded and checksum-checked on the runner) to a stand-in Zharp, then run on
+# emulators (KVM): it crashes in C++ (a null pointer, an abort with a message) and the next launch
+# reports each crash once from Android's exit record. Android 11 has no tombstone; 12+ do. What
+# arrived, the uploaded .sym files and the emulator's tombstones are kept as workflow artifacts.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feat/ndk-crashes]
+    paths: ['zharp-android/**', 'zharp-gradle-plugin/**', 'samples/ndk-app/**', 'e2e/**', '.github/workflows/ndk-e2e.yml']
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: SDK unit tests
+        run: ./gradlew :zharp-android:testDebugUnitTest
+      - name: Gradle plugin tests (the functional ones build real apps)
+        run: ./gradlew -p zharp-gradle-plugin test
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the NDK sample in Release (the plugin uploads to the stand-in)
+        env:
+          ZHARP_AUTH_TOKEN: zh_ndk_e2e
+          ZHARP_URL: http://127.0.0.1:4318
+        run: |
+          python3 e2e/mock_zharp.py "$RUNNER_TEMP/build" > "$RUNNER_TEMP/build-mock.log" 2>&1 &
+          MOCK=$!
+          sleep 1
+          ./gradlew :samples:ndk-app:assembleRelease -Pzharp.abis=x86_64 -Pzharp.appId=7 \
+            -Pzharp.appKey=zpk_ndk_e2e -Pzharp.endpoint=http://10.0.2.2:4318/api/v1/otlp
+          kill $MOCK
+          cat "$RUNNER_TEMP/build-mock.log"
+          ls -la "$RUNNER_TEMP/build/artifacts"
+          sym="$(ls "$RUNNER_TEMP"/build/artifacts/breakpad-sym-*-libshop.so | head -1)"
+          [ -n "$sym" ] || { echo "::error::no .sym uploaded for libshop.so"; exit 1; }
+          head -2 "$sym"
+          grep -q "^FUNC .*Cart::total() const$" "$sym" || { echo "::error::the .sym doesn't name Cart::total"; exit 1; }
+          grep -q '"arch": "x86_64"' "$sym.json" || { echo "::error::no arch on the upload"; exit 1; }
+          ls "$RUNNER_TEMP"/build/artifacts/source-bundle-*-sources.json | grep -v -- '-sources.json.json' | head -3
+          grep -l "cart.cpp" "$RUNNER_TEMP"/build/artifacts/source-bundle-* || { echo "::error::no C++ sources bundled"; exit 1; }
+          dist="$RUNNER_TEMP/build/dist"; mkdir -p "$dist" && cp samples/ndk-app/build/outputs/apk/release/ndk-app-release.apk "$dist/"
+          cp samples/ndk-app/build/intermediates/merged_native_libs/release/*/out/lib/x86_64/libshop.so "$dist/libshop.so"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndk-build
+          path: ${{ runner.temp }}/build
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 31, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ndk-build
+          path: ${{ runner.temp }}/ndk-build
+      - name: Put the APK where the script looks
+        run: |
+          mkdir -p samples/ndk-app/build/outputs/apk/release
+          cp "$RUNNER_TEMP"/ndk-build/dist/ndk-app-release.apk samples/ndk-app/build/outputs/apk/release/
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Crash and report on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash e2e/ndk.sh
+
+      - name: Keep what was sent
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ndk-sent-api${{ matrix.api }}
+          path: ${{ runner.temp }}/sent

@@ -36,4 +36,15 @@ public abstract class ZharpExtension {
 
     /** Fail the build when the upload fails (the default), so a release never ships with unreadable stacks unnoticed. */
     public abstract val failOnUploadError: Property<Boolean>
+
+    /**
+     * Upload the symbols of the app's native libraries (`.so`) with each release build (default:
+     * on), so native (NDK) crashes show function names, files and lines. Made with Mozilla's
+     * dump_syms: [dumpSyms], else `dump_syms` on PATH, else its release, downloaded once and
+     * checksum-verified. Apps without native libraries upload nothing.
+     */
+    public abstract val uploadNativeSymbols: Property<Boolean>
+
+    /** A dump_syms binary to use (also `ZHARP_DUMP_SYMS`), instead of finding or downloading one. */
+    public abstract val dumpSyms: Property<String>
 }
