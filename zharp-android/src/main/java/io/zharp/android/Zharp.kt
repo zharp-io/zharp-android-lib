@@ -206,6 +206,18 @@ public object Zharp {
         guarded(Unit, "captureError") { current.captureError(error, attributes) }
     }
 
+    /**
+     * A handled error from native (C/C++) code, for native SDKs built on this one (Zharp for Qt on
+     * Android): [stacktrace] is the headline then frames in Zharp's native style
+     * (`#0  fn [libshop.so +0x1a2b4]`), and [nativeBuildIds] one `<GNU build ID> <library>` per line
+     * for the app libraries in it, by which Zharp finds their uploaded symbols — as for NDK crashes.
+     */
+    @JvmStatic
+    public fun captureNativeError(type: String, message: String, stacktrace: String, nativeBuildIds: String) {
+        val current = runtime ?: return
+        guarded(Unit, "captureNativeError") { current.captureNativeError(type, message, stacktrace, nativeBuildIds) }
+    }
+
     // ── Traces ───────────────────────────────────────────────────────────────────────────────
 
     /**
