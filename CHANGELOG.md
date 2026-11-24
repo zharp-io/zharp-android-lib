@@ -1,5 +1,11 @@
 # Changelog
 
+## io.zharp:android 1.5.0 — unreleased
+
+- `Zharp.captureNativeError(type, message, stacktrace, nativeBuildIds)`: a handled error from C/C++,
+  with its frames in Zharp's native style and the app libraries' GNU build IDs (as NDK crashes
+  send them), for native SDKs built on this one — Zharp for Qt on Android calls it.
+
 ## io.zharp:android 1.4.0, Gradle plugin io.zharp.android-gradle 1.2.0 — unreleased
 
 - **Native (NDK) crashes**, reported on the next launch from Android's own exit record: on

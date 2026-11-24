@@ -187,6 +187,23 @@ internal class Runtime(
         sender.drainLater()
     }
 
+    /** A handled native error (see Zharp.captureNativeError): an ERROR record in this session, on this screen. */
+    fun captureNativeError(type: String, message: String, stacktrace: String, nativeBuildIds: String) {
+        val attributes = Attributes.builder()
+            .put(Keys.EXCEPTION_TYPE, type)
+            .put(Keys.EXCEPTION_MESSAGE, message)
+            .put(Keys.EXCEPTION_STACKTRACE, stacktrace)
+            .put(Keys.HANDLED, "true")
+        if (nativeBuildIds.isNotBlank()) attributes.put(NativeCrash.BUILD_IDS, nativeBuildIds.trim())
+        logger.logRecordBuilder()
+            .setTimestamp(Clock.getDefault().now(), TimeUnit.NANOSECONDS)
+            .setSeverity(Severity.ERROR)
+            .setSeverityText("ERROR")
+            .setBody(stacktrace.substringBefore('\n'))
+            .setAllAttributes(attributes.build())
+            .emit()
+    }
+
     fun log(severity: Severity, message: String, attributes: Map<String, Any?>?, error: Throwable?) {
         val all = if (error != null) Errors.attributes(error, handled = true) else Attributes.builder()
         all.putAll(attributes)
